@@ -11,6 +11,7 @@ This document tells the story of how we identified and solved critical performan
 ## The Problem: The Day the App Started Freezing
 
 ### Symptoms (What Users Saw)
+
 - **Financial Dashboard**: Would freeze for 15–20 seconds on initial load
 - **Categories page**: Loaded but with noticeable lag; network tab showed 2,010+ requests firing simultaneously
 - **General slowness**: Every page with data felt sluggish; users couldn't work efficiently
@@ -29,6 +30,7 @@ This document tells the story of how we identified and solved critical performan
 ### 1. Financial Dashboard: N+1 Query Nightmare on Steroids
 
 **The Code Pattern** (Before):
+
 ```go
 // GetFinancialDetailedSummary — naive approach
 months := getMonthRange(3) // 3 months
@@ -44,11 +46,13 @@ for _, month := range months {
 ```
 
 **The Math**:
+
 - 3 months × 100 contracts × 2 clients × 8 queries per combination = **4,800 individual queries**
 - In reality, with pagination loops and cascading lookups: **15,000–20,000 queries per request**
 - Time cost: **15–20 seconds** just waiting for the database
 
-**Why This Happened**: 
+**Why This Happened**:
+
 - Early development prioritized "get it working" over "get it efficient"
 - No load testing against realistic data volumes (100+ contracts, 50+ categories, etc.)
 - Each new feature added more loops; nobody connected them together
@@ -58,6 +62,7 @@ for _, month := range months {
 ### 2. Categories: The 2,010-Request Thunderstorm
 
 **The Code Pattern** (Before):
+
 ```javascript
 // Frontend: Load categories, then load subcategories one-by-one
 const categories = await fetch('/api/categories');
@@ -70,12 +75,14 @@ for (const cat of categoryList) {
 ```
 
 **The Math**:
+
 - 1 request for categories list
 - 1 request per category (15–20 categories)
 - Per category, 1 request per subcategory (80–100 subcategories total)
 - Result: **2,010+ network requests** for a single page load
 
 **The Real Cost**:
+
 - Browser resource limits: Only 6–8 concurrent connections per domain
 - Request queue explodes; browser grinds to a halt
 - Each request overhead: DNS, TCP handshake, TLS if HTTPS, HTTP headers, parsing
@@ -86,12 +93,14 @@ for (const cat of categoryList) {
 ### 3. Contracts API: Argument Mismatch Causing 500 Errors
 
 **The Problem**:
+
 - SQL builder always pre-populated time parameters (now, expiringLimit)
 - Many filter types didn't reference those placeholders
 - PostgreSQL error: "expected 0 arguments, got 2"
 - Users saw random 500 errors; pages would retry, adding more load
 
 **Why It Mattered**:
+
 - Intermittent 500s caused browsers to retry
 - Rate limit middleware kicked in due to retry storms
 - Legitimate requests hit rate limit and failed
@@ -126,6 +135,7 @@ func GetFinancialDetailedSummary(ctx context.Context, userID string) (*Financial
 ```
 
 **Results**:
+
 - **Before**: 15,000–20,000 queries per request → **15–20 seconds**
 - **After**: 1–2 queries per request → **0.5–1 second**
 - **Improvement**: **40x faster**
@@ -157,6 +167,7 @@ GET /api/categories?include_subcategories=true
 ```
 
 **Database Layer**:
+
 ```go
 // Single query with LEFT JOIN
 query := `
@@ -172,6 +183,7 @@ query := `
 ```
 
 **Results**:
+
 - **Before**: 2,010 requests → **8–10 seconds** network time
 - **After**: 1 request → **50–200ms** network time
 - **Improvement**: **50–100x fewer requests**
@@ -210,6 +222,7 @@ func buildContractFilterWhere(filter string, args []interface{}) (string, []inte
 ```
 
 **Results**:
+
 - **Before**: Intermittent 500 errors → browser retries → rate limit hit
 - **After**: Consistent 200 responses
 
@@ -218,6 +231,7 @@ func buildContractFilterWhere(filter string, args []interface{}) (string, []inte
 ## Rate Limiting: Preventing Cascade Failures
 
 ### The Issue
+
 - Default rate limit: **100 req/s** with burst 200 — too permissive for a per-IP system
 - When users hit limit due to retry storms, pages would hang indefinitely
 - Frontend showed generic "Falha ao carregar" instead of "Rate limit exceeded"
@@ -225,12 +239,14 @@ func buildContractFilterWhere(filter string, args []interface{}) (string, []inte
 ### The Solution
 
 **Backend Config** (`config.go`):
+
 ```go
 RateLimit: 10  // 10 requests per second
 RateBurst: 20  // Burst capacity of 20 tokens
 ```
 
 **Frontend Error Handling** (`apiHelpers.js`):
+
 ```javascript
 export function handleResponseErrors(response, onTokenExpired) {
     if (response.status === 401) {
@@ -247,6 +263,7 @@ export function handleResponseErrors(response, onTokenExpired) {
 ```
 
 **Results**:
+
 - Users now get a clear, actionable message instead of "Falha ao carregar"
 - Rate limit is reasonable for legitimate users while protecting against runaway requests
 - Applied consistently across **68 API functions** in 7 modules
@@ -256,6 +273,7 @@ export function handleResponseErrors(response, onTokenExpired) {
 ## Performance Metrics: The Numbers
 
 ### Financial Dashboard
+
 | Metric | Before | After | Improvement |
 |--------|--------|-------|-------------|
 | Page Load Time | 15–20s | 0.7–1s | **25–30x faster** |
@@ -265,6 +283,7 @@ export function handleResponseErrors(response, onTokenExpired) {
 | Database CPU | 95%+ | 8–12% | **90% reduction** |
 
 ### Categories Page
+
 | Metric | Before | After | Improvement |
 |--------|--------|-------|-------------|
 | Network Requests | 2,010 | 1 | **2,010x reduction** |
@@ -273,6 +292,7 @@ export function handleResponseErrors(response, onTokenExpired) {
 | Browser Memory | 250MB+ | 32MB | **90% less** |
 
 ### Contracts API
+
 | Metric | Before | After | Improvement |
 |--------|--------|-------|-------------|
 | 500 Error Rate | 5–15% | 0% | **Complete fix** |
@@ -286,6 +306,7 @@ export function handleResponseErrors(response, onTokenExpired) {
 ### Principle 1: Aggregate at the Database Layer, Not the Application Layer
 
 **❌ Wrong** (Application-level aggregation):
+
 ```javascript
 const financials = await db.query("SELECT * FROM financial");
 const byMonth = {};
@@ -297,6 +318,7 @@ for (const f of financials) {
 ```
 
 **✅ Right** (Database-level aggregation):
+
 ```sql
 SELECT 
     DATE_TRUNC('month', due_date) as month,
@@ -313,6 +335,7 @@ GROUP BY month
 ### Principle 2: Avoid the N+1 Query Pattern
 
 **❌ Wrong**:
+
 ```go
 contracts := db.Query("SELECT * FROM contracts") // 1 query
 for _, contract := range contracts {
@@ -321,6 +344,7 @@ for _, contract := range contracts {
 ```
 
 **✅ Right**:
+
 ```go
 // Single query with JOIN + GROUP_CONCAT or array aggregation
 contracts := db.Query(`
@@ -338,6 +362,7 @@ contracts := db.Query(`
 ### Principle 3: Use Indexes for JOIN and WHERE Filters
 
 **For the financial module**, we added:
+
 ```sql
 -- Composite covering index for common queries
 CREATE INDEX idx_financial_installments_by_contract_period 
@@ -355,6 +380,7 @@ INCLUDE (client_value, received_value);
 ### Principle 4: Pagination is Your Friend
 
 **For list endpoints**, always paginate:
+
 ```go
 GET /api/financial?limit=50&offset=0
 // Returns: {data: [...], total: 5432, limit: 50, offset: 0}
@@ -367,6 +393,7 @@ GET /api/financial?limit=50&offset=0
 ### Principle 5: Lazy-Load Non-Critical Data
 
 **For dashboards**, separate critical from optional:
+
 ```go
 // Critical: Summary data, fast response
 GET /api/financial/summary  // Returns in <100ms
@@ -376,6 +403,7 @@ GET /api/financial/detailed-summary  // Returns in <500ms, user only requests if
 ```
 
 **Frontend**:
+
 ```javascript
 // Load summary immediately
 const summary = await getFinancialSummary();
@@ -396,6 +424,7 @@ getDetailedSummary()
 **Old Architecture**: 150,000–200,000 queries per request. **Server would crash.**
 
 **New Architecture (with enriched responses)**:
+
 - Batch queries: Still 2–3 queries + 1 enriched response per table
 - Time: ~1.5–2.5 seconds (includes enriched LEFT JOINs, still dominated by network latency)
 - Why faster: Enriched responses eliminate 3–6 parallel client calls; single JOIN query is more efficient than N+1
@@ -409,6 +438,7 @@ getDetailedSummary()
 **Old Architecture**: 10,000+ requests. **Browser tabs would crash.**
 
 **New Architecture**:
+
 - Single aggregated query: ~100ms
 - Response size: ~500KB (manageable)
 - Action: Implement virtual scrolling on frontend if list grows beyond 1,000 items
@@ -418,6 +448,7 @@ getDetailedSummary()
 ### Scenario 3: Multi-Tenant (Currently per-user, scale to 10,000 users)
 
 **Critical Changes**:
+
 1. Add `tenant_id` or `user_id` to every partition key
 2. Ensure indexes include tenant filtering: `CREATE INDEX idx_financial_by_tenant_contract ON financial(user_id, contract_id, due_date)`
 3. Implement query result caching at 5–10 minute intervals per user
@@ -428,23 +459,31 @@ getDetailedSummary()
 ## What to Monitor Going Forward
 
 ### Database Metrics
+
 - **Query count per request**: Should stay <5 for any endpoint
 - **Query execution time**: Should stay <100ms per query (except analytics)
 - **Index hit rate**: Should be >95% (not doing full table scans)
 - **Connection pool utilization**: Should stay <70%
 
 ### Application Metrics
+
 - **Page load time**: <2s for data-heavy pages
 - **API response time (p95)**: <500ms
 - **Network requests per page**: <20 (currently achieving <10 on major pages with enriched responses)
 - **Error rate**: 0% for normal operations (429s during legitimate rate limit are OK)
-- **Enriched Response Metrics** (new):
+- **Enriched Response Metrics**:
   - **Time to First Contentful Paint (FCP)**: <1.5s for Contracts/Financial pages (achieved via single enriched API call)
   - **API calls for critical path**: ≤1 per table (e.g., Contracts page: 1 enriched `/contracts` call, auxiliary data loaded in background)
   - **Response payload size**: <2MB for enriched endpoints (acceptable tradeoff vs. 3 separate calls)
   - **Client-side Map construction time**: Should not appear in performance profiles (eliminated by enriched fields)
+- **Caching & Auth Metrics** (added Week 7):
+  - **Pages with 0 API requests on revisit**: 3 (`/contracts`, `/settings`, `/appearance`) — DataContext + Cache-Control working
+  - **Redundant API calls on Financial page**: 0 (was 1 — categories cache bug fixed)
+  - **Logout audit trail**: Every manual logout creates an audit-log entry
+  - **Backend log format**: Single fixed-width line per request, includes page source and user/role
 
 ### Tools to Use
+
 ```bash
 # PostgreSQL query analysis
 EXPLAIN ANALYZE SELECT ...;
@@ -466,31 +505,37 @@ go tool pprof cpu.prof
 ## Timeline of This Journey
 
 ### Week 1: Discovery
+
 - Users report "app is slow"
 - Initial assumption: database needs optimization
 - Reality check: Database fine; application making 15,000 queries per request
 
 ### Week 2: Root Cause Analysis
+
 - Profiled actual queries being run
 - Identified N+1 pattern, naive loop-based aggregation
 - Traced categories endpoint: 2,010 requests from single feature
 
 ### Week 3: Architecture Redesign
+
 - Rewrote financial queries using batch aggregation
 - Implemented server-side categories aggregation
 - Fixed SQL placeholder mismatch bugs
 
 ### Week 4: Frontend & Rate Limiting
+
 - Added centralized error handling for 429 status
 - Updated rate limit config to reasonable defaults (10/s, burst 20)
 - Ensured clear error messages instead of generic "failed to load"
 
 ### Week 5: Verification
+
 - Load tested with realistic data (100+ contracts, 50+ categories)
 - Verified page load times: 0.72 seconds (Financial), <100ms (Categories)
 - 0% error rate under normal load; graceful handling under high load
 
 ### Week 6: Contracts & Financial Pages — The "6 Calls to 1" Optimization
+
 - **Discovered**: Despite earlier fixes, Contracts and Financial pages remained slow (~4–8 sec load time)
 - **Root cause**: Frontend was making 3–6 parallel API calls to build a single table:
   - Contracts page: `GET /contracts` (no enrichment) + `GET /clients` + `GET /categories`
@@ -511,6 +556,44 @@ go tool pprof cpu.prof
   - Client-side jank: Eliminated
 - **Key learning**: Enrich at the database level. One 1MB JOIN result is faster than 3 separate 300KB API calls + browser Maps.
 
+### Week 7: Backend Logging, Caching & Authentication Hardening
+
+- **Discovered**: Backend logs were verbose (2-3 lines per request with CORS spam), token expiration from ConfigContext wasn't redirecting to login, logout was not logged anywhere, and `fetchCategories` had a call-signature bug bypassing the cache.
+- **Backend optimizations**:
+  1. Removed 2 verbose CORS log lines per request from `server.go`
+  2. Cached `is_initialized` status in memory in `initialize_status.go` (eliminated DB query per request)
+  3. Removed duplicate `GetUserRole` call from `authMiddleware` in `routes.go`
+  4. Added `Cache-Control: private, max-age=300, must-revalidate` to stable GET endpoints (`/settings`, `/user/theme`, `/system-config/dashboard`)
+  5. Implemented fixed-width columnar log format in `middleware_logging.go`:
+
+     ```
+     /dashboard     | GET    | /api/dashboard/counts               | 200 |      6.47ms  | root, root
+     ```
+
+     Columns: PAGE(14) | METHOD(6) | API(35) | STATUS(3) | DURATION(12) | user, role
+  6. Created `POST /api/logout` endpoint with audit-log entry (operation=logout, resource=auth)
+- **Frontend fixes**:
+  1. `ConfigProvider` now receives `onTokenExpired` prop → 401 from `/api/settings` or `/api/user/theme` triggers redirect to login
+  2. `App.jsx` logout function calls `POST /api/logout` before clearing localStorage (fire-and-forget)
+  3. **Critical cache bug**: `Financial.jsx` called `fetchCategories({}, false)` — but `fetchCategories` signature is `(forceRefresh)`, so `{}` (truthy) was treated as `forceRefresh=true`, **always bypassing the DataContext cache**. Fixed to `fetchCategories(false)`.
+  4. Merged two `useEffect` hooks in `AuditLogs.jsx` to prevent cascading double calls
+- **Results** (per-page requests after all optimizations):
+
+  | Page | Requests | Notes |
+  |------|----------|-------|
+  | `/dashboard` (initial) | 7 | Normal initial load |
+  | `/contracts` | **0** | DataContext cache hit |
+  | `/categories` | 1 | Only page-specific data |
+  | `/financial` | **4** (was 5) | Categories now cached |
+  | `/clients` | 2 | Clean |
+  | `/users` | 1 | Clean |
+  | `/audit-logs` | 2 | StrictMode dev-only |
+  | `/settings` | **0** | Browser Cache-Control hit |
+  | `/appearance` | **0** | Browser Cache-Control hit |
+  | `/dashboard` (return) | 1 | Only fresh counts |
+
+- **Key learning**: Call-signature mismatches are silent killers. `fetchCategories({}, false)` looked correct but `{}` is truthy in JavaScript, completely bypassing the 5-minute TTL cache.
+
 ---
 
 ## Key Takeaways
@@ -525,15 +608,21 @@ go tool pprof cpu.prof
 
 5. **Scalability is an architecture decision, not an afterthought**: If your v1 makes 15,000 queries per request, v10 will crash. Design for 10x growth from the start.
 
+6. **Call-signature bugs are silent cache killers**: JavaScript's truthy evaluation means `fn({}, false)` passes `{}` as the first argument — and `{}` is truthy. This bypassed the DataContext's 5-minute TTL cache entirely, causing a redundant `/api/categories` call on every Financial page visit.
+
+7. **Log format is a debugging multiplier**: Fixed-width columnar logs with page source make it trivial to spot redundant calls, slow endpoints, and unauthenticated requests at a glance.
+
 ---
 
 ## Questions?
 
 For architectural questions and case studies, see:
+
 - `/docs/QUERY_SCALABILITY_ARCHITECTURE.md` — Core principles, detailed case study: "Contracts & Financial Pages — From 6 API Calls to 1 Enriched Response"
 - `/docs/QUERY_ARCHITECTURE.md` — Design patterns and best practices
 
 For implementation details, see the code comments in:
+
 - `backend/repository/financial/` (batch query patterns)
 - `backend/repository/contract/` (enriched response patterns with JOINs)
 - `backend/server/financial_handlers.go` (pagination examples)
