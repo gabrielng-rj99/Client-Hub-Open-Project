@@ -316,6 +316,8 @@ func (s *Server) HandleGetUserTheme(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Theme settings rarely change — allow browser to cache for 5 minutes
+	w.Header().Set("Cache-Control", "private, max-age=300")
 	respondJSON(w, http.StatusOK, response)
 }
 

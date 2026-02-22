@@ -125,6 +125,8 @@ func (s *Server) HandleGetDashboardConfig(w http.ResponseWriter, r *http.Request
 		}
 	}
 
+	// Dashboard config rarely changes — allow browser to cache for 5 minutes
+	w.Header().Set("Cache-Control", "private, max-age=300")
 	respondJSON(w, http.StatusOK, response)
 }
 

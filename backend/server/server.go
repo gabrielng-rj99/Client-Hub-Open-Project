@@ -152,7 +152,6 @@ func isOriginAllowed(origin string, allowedOrigins []string) bool {
 
 func (s *Server) corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("CORS MIDDLEWARE EXECUTADO: %s %s", r.Method, r.URL.Path)
 		// Panic recovery
 		defer func() {
 			if err := recover(); err != nil {
@@ -162,7 +161,6 @@ func (s *Server) corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		}()
 
 		origin := r.Header.Get("Origin")
-		log.Printf("CORS: Origin recebido: '%s' | Method: %s | Path: %s", origin, r.Method, r.URL.Path)
 
 		// Check if origin is allowed
 		if origin != "" && isOriginAllowed(origin, s.config.Server.CORSOrigins) {
