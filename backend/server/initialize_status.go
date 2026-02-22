@@ -19,14 +19,11 @@
 package server
 
 import (
-	"context"
 	"database/sql"
 	"encoding/json"
 	"log"
 	"net/http"
-	"time"
-
-	"Open-Generic-Hub/backend/database"
+	"sync"
 )
 
 // InitializeStatusResponse representa o status de inicialização
@@ -39,6 +36,13 @@ type InitializeStatusResponse struct {
 	DatabaseStatus string   `json:"database_status,omitempty"` // "empty", "has_data", "connected", "error"
 	TablesWithData []string `json:"tables_with_data,omitempty"`
 }
+
+// In-memory cache for initialization status.
+// Once is_initialized=true, the result never changes (you can't un-initialize).
+var (
+	initStatusMu     sync.Mutex
+	initStatusCached *InitializeStatusResponse
+)
 
 // checkDatabaseEmpty verifica se TODAS as tabelas principais estão vazias
 func checkDatabaseEmpty(db *sql.DB) (bool, []string, error) {
@@ -63,14 +67,12 @@ func checkDatabaseEmpty(db *sql.DB) (bool, []string, error) {
 			return false, nil, err
 		}
 
-		log.Printf("Table '%s' has %d rows", table, count)
 		if count > 0 {
 			tablesWithData = append(tablesWithData, table)
 		}
 	}
 
 	isEmpty := len(tablesWithData) == 0
-	log.Printf("Database empty check: isEmpty=%v, tablesWithData=%v", isEmpty, tablesWithData)
 	return isEmpty, tablesWithData, nil
 }
 
@@ -91,7 +93,6 @@ func (s *Server) HandleInitializeStatus(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// 🔒 SECURITY: Prevent query parameter manipulation attempts
-	// This endpoint should not accept any query parameters
 	if len(r.URL.Query()) > 0 {
 		ip := getIPAddress(r)
 		ipStr := ""
@@ -101,6 +102,20 @@ func (s *Server) HandleInitializeStatus(w http.ResponseWriter, r *http.Request) 
 		log.Printf("⚠️  WARNING: /api/initialize/status called with query parameters from IP=%s: %v", ipStr, r.URL.Query())
 	}
 
+	// Fast path: if we already know the system is initialized, return cached response
+	initStatusMu.Lock()
+	cached := initStatusCached
+	initStatusMu.Unlock()
+
+	if cached != nil && cached.IsInitialized {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "private, max-age=60")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(cached)
+		return
+	}
+
+	// Slow path: check database
 	response := InitializeStatusResponse{
 		HasDatabase:    false,
 		DatabaseEmpty:  false,
@@ -110,13 +125,12 @@ func (s *Server) HandleInitializeStatus(w http.ResponseWriter, r *http.Request) 
 		Message:        "Initialization not complete",
 	}
 
-	// 🔒 SECURITY: Attempt database connection with timeout
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	db, err := database.ConnectDB()
-	if err != nil {
-		log.Printf("⚠️  Database connection error during status check: %v", err)
+	// Use the server's existing DB connection instead of opening a new one
+	db := s.db
+	if db == nil {
+		db = GetGlobalDB()
+	}
+	if db == nil {
 		response.DatabaseStatus = "error"
 		response.RequiresSetup = true
 		response.Message = "Database not configured or not accessible"
@@ -126,11 +140,9 @@ func (s *Server) HandleInitializeStatus(w http.ResponseWriter, r *http.Request) 
 		json.NewEncoder(w).Encode(response)
 		return
 	}
-	defer db.Close()
 
-	// 🔒 SECURITY: Verify database connection is actually working
-	if err := db.PingContext(ctx); err != nil {
-		log.Printf("⚠️  Database ping failed during status check: %v", err)
+	// Verify database connection is actually working
+	if err := db.Ping(); err != nil {
 		response.DatabaseStatus = "error"
 		response.RequiresSetup = true
 		response.Message = "Database connection test failed"
@@ -144,8 +156,7 @@ func (s *Server) HandleInitializeStatus(w http.ResponseWriter, r *http.Request) 
 	response.HasDatabase = true
 	response.DatabaseStatus = "connected"
 
-	// 🔒 SECURITY: Verifica se o banco está completamente vazio
-	// This check is critical - it prevents /initialize/admin from being called when system is already initialized
+	// Check if the database has data
 	isEmpty, tablesWithData, err := checkDatabaseEmpty(db)
 	if err != nil {
 		log.Printf("❌ Error checking database status: %v", err)
@@ -157,29 +168,33 @@ func (s *Server) HandleInitializeStatus(w http.ResponseWriter, r *http.Request) 
 		response.TablesWithData = tablesWithData
 
 		if isEmpty {
-			// 🔒 SECURITY: Banco vazio - precisa de setup inicial
-			// Only return requires_setup=true if database is COMPLETELY empty
 			response.DatabaseStatus = "empty"
 			response.RequiresSetup = true
 			response.IsInitialized = false
 			response.Message = "Database is empty. Admin creation required."
 			log.Printf("ℹ️  Database is empty - system initialization required")
 		} else {
-			// 🔒 SECURITY: Banco tem dados - sistema já foi inicializado
-			// IMPORTANT: Once any data exists, initialization is locked forever
 			response.DatabaseStatus = "has_data"
 			response.RequiresSetup = false
 			response.IsInitialized = true
 			response.Message = "System fully initialized"
 			log.Printf("✅ System is initialized with %d tables containing data", len(tablesWithData))
+
+			// Cache permanently — system can't go from initialized to uninitialized
+			initStatusMu.Lock()
+			initStatusCached = &response
+			initStatusMu.Unlock()
 		}
 	}
 
-	// 🔒 SECURITY: Set response headers to prevent caching of initialization status
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
-	w.Header().Set("Pragma", "no-cache")
-	w.Header().Set("Expires", "0")
+	if response.IsInitialized {
+		w.Header().Set("Cache-Control", "private, max-age=60")
+	} else {
+		w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+		w.Header().Set("Pragma", "no-cache")
+		w.Header().Set("Expires", "0")
+	}
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
 }
