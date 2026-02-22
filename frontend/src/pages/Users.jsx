@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import Select from "react-select";
 import { useConfig } from "../contexts/ConfigContext";
@@ -67,7 +67,11 @@ export default function Users({
     const [selectedUser, setSelectedUser] = useState(null);
     const [formData, setFormData] = useState(getInitialFormData());
 
+    // StrictMode-safe guard: prevent double-firing of initial load
+    const usersLoadStarted = useRef(false);
     useEffect(() => {
+        if (usersLoadStarted.current) return;
+        usersLoadStarted.current = true;
         loadUsers();
     }, []);
 
@@ -345,9 +349,9 @@ export default function Users({
                     value={
                         displayNameFilter
                             ? {
-                                  value: displayNameFilter,
-                                  label: displayNameFilter,
-                              }
+                                value: displayNameFilter,
+                                label: displayNameFilter,
+                            }
                             : null
                     }
                     onChange={(selected) =>

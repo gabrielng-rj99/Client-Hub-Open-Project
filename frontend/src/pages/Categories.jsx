@@ -92,7 +92,11 @@ export default function Categories({ token, apiUrl, onTokenExpired }) {
     const [categoryForm, setCategoryForm] = useState(getInitialCategoryForm());
     const [lineForm, setLineForm] = useState(getInitialLineForm());
 
+    // StrictMode-safe guard: prevent double-firing of initial load
+    const categoriesLoadStarted = useRef(false);
     useEffect(() => {
+        if (categoriesLoadStarted.current) return;
+        categoriesLoadStarted.current = true;
         loadCategories();
     }, []);
 

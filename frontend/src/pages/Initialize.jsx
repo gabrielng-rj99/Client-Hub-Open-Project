@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import "./styles/Initialize.css";
 
 const generateSecurePassword = (length = 64) => {
@@ -69,7 +69,11 @@ const Initialize = ({ onInitializationComplete }) => {
     const [showPassword, setShowPassword] = useState(false);
     const [creatingAdmin, setCreatingAdmin] = useState(false);
 
+    // StrictMode-safe guard: prevent double-firing of initial check
+    const initCheckStarted = useRef(false);
     useEffect(() => {
+        if (initCheckStarted.current) return;
+        initCheckStarted.current = true;
         checkBackendStatus();
     }, []);
 

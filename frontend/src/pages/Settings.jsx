@@ -201,8 +201,10 @@ export default function Settings({ token, apiUrl }) {
         }));
     };
 
-    // Load dashboard settings on mount
+    // Load dashboard settings lazily when the dashboard tab is active
+    const [dashboardSettingsLoaded, setDashboardSettingsLoaded] = useState(false);
     useEffect(() => {
+        if (activeSection !== "dashboard" || dashboardSettingsLoaded) return;
         const loadDashboardSettings = async () => {
             try {
                 const response = await fetch(
@@ -223,8 +225,9 @@ export default function Settings({ token, apiUrl }) {
         };
         if (token && apiUrl) {
             loadDashboardSettings();
+            setDashboardSettingsLoaded(true);
         }
-    }, [token, apiUrl]);
+    }, [activeSection, dashboardSettingsLoaded, token, apiUrl]);
 
     const handleSaveLabelsOriginal = async () => {
         setLabelsMessage("");

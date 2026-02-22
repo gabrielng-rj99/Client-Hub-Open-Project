@@ -152,7 +152,7 @@ export default function Clients({ token, apiUrl, onTokenExpired }) {
                 {},
                 "clients_counts",
                 30 * 1000,
-                true,
+                false,
             );
             if (response?.data) {
                 setCounts(response.data);

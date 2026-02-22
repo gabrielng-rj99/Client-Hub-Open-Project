@@ -61,14 +61,11 @@ export default function AuditLogs({ token, apiUrl, user, onTokenExpired }) {
     // Local state for the filter inputs
     const [filters, setFilters] = useState(getFiltersFromUrl());
 
-    // Sync local state when URL changes (e.g. Back button)
+    // Sync local state when URL changes AND load logs in a single effect
     useEffect(() => {
         setFilters(getFiltersFromUrl());
-    }, [searchParams]);
-
-    // Load logs whenever URL params change
-    useEffect(() => {
         loadLogs();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [searchParams]);
 
     // Related entities are loaded on-demand; no preload on mount.
