@@ -83,12 +83,9 @@ func (s *Server) authMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		// Inject user info for logging (role fetched from DB)
+		// Inject user info for logging (role fetched from DB once here)
 		setRequestUser(r, claims, s.roleStore)
 
-		// Get role from DB for logging
-		role, _ := s.roleStore.GetUserRole(claims.UserID)
-		log.Printf("Requisição autenticada: username=%s, role=%s, method=%s, path=%s", claims.Username, role, r.Method, r.URL.Path)
 		next(w, r)
 	}
 }
@@ -176,6 +173,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 
 	// Auth
 	mux.HandleFunc("/api/login", s.standardMiddleware(s.handleLogin))
+	mux.HandleFunc("/api/logout", s.standardMiddleware(s.authMiddleware(s.handleLogout)))
 	mux.HandleFunc("/api/refresh-token", s.standardMiddleware(s.handleRefreshToken))
 
 	// Users - admin/root only for management operations

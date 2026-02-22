@@ -157,6 +157,46 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// ============= LOGOUT HANDLER =============
+
+func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		respondError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	// Extract user info from JWT (already validated by authMiddleware)
+	tokenString := extractTokenFromHeader(r)
+	claims, err := ValidateJWT(tokenString, s.userStore)
+	if err != nil {
+		// Token invalid — still respond OK (user is logging out regardless)
+		respondJSON(w, http.StatusOK, SuccessResponse{Message: "Logged out"})
+		return
+	}
+
+	// Log logout in audit-logs
+	s.auditStore.LogOperation(store.AuditLogRequest{
+		Operation:     "logout",
+		Resource:      "auth",
+		ResourceID:    claims.UserID,
+		AdminID:       &claims.UserID,
+		AdminUsername: &claims.Username,
+		OldValue:      nil,
+		NewValue: map[string]interface{}{
+			"method": "manual",
+			"result": "success",
+		},
+		Status:        "success",
+		ErrorMessage:  nil,
+		IPAddress:     getIPAddress(r),
+		UserAgent:     getUserAgent(r),
+		RequestMethod: getRequestMethod(r),
+		RequestPath:   getRequestPath(r),
+	})
+
+	respondJSON(w, http.StatusOK, SuccessResponse{Message: "Logged out"})
+}
+
 // ============= REFRESH TOKEN HANDLER =============
 
 func (s *Server) handleRefreshToken(w http.ResponseWriter, r *http.Request) {
