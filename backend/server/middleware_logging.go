@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"Open-Generic-Hub/backend/store"
@@ -87,23 +88,42 @@ func (s *Server) loggingMiddleware(next http.HandlerFunc) http.HandlerFunc {
 
 		duration := time.Since(start)
 
-		// Determine user string
-		userStr := "Anonymous"
-		if logData.Username != "" {
-			userStr = fmt.Sprintf("%s (ID: %s, Role: %s)", logData.Username, logData.UserID, logData.Role)
+		// Extract page from Referer header (e.g., "http://localhost:5173/contracts" → "/contracts")
+		page := "-"
+		if referer := r.Header.Get("Referer"); referer != "" {
+			if idx := strings.Index(referer, "//"); idx != -1 {
+				rest := referer[idx+2:]
+				if slashIdx := strings.Index(rest, "/"); slashIdx != -1 {
+					page = rest[slashIdx:]
+					// Strip query params from page
+					if qIdx := strings.Index(page, "?"); qIdx != -1 {
+						page = page[:qIdx]
+					}
+				}
+			}
 		}
 
-		ip := *getIPAddress(r)
+		// Format duration to fixed width (right-aligned, 12 chars)
+		durStr := fmt.Sprintf("%12s", duration.Truncate(time.Microsecond))
 
-		// [TIME] [METHOD] [PATH] | Status: [CODE] | Dur: [TIME] | IP: [IP] | User: [USER]
-		log.Printf(
-			"%s %s | Status: %d | Dur: %v | IP: %s | User: %s",
+		// User and role (variable width, at the end)
+		userName := "-"
+		userRole := "-"
+		if logData.Username != "" {
+			userName = logData.Username
+			userRole = logData.Role
+		}
+
+		// Fixed-width columnar format:
+		// PAGE(14) | METHOD(6) | API(35) | STATUS(3) | DURATION(12) | user, role
+		log.Printf("%-14s | %-6s | %-35s | %3d | %s | %s, %s",
+			page,
 			r.Method,
 			r.URL.Path,
 			wrapped.Status(),
-			duration,
-			ip,
-			userStr,
+			durStr,
+			userName,
+			userRole,
 		)
 	}
 }
