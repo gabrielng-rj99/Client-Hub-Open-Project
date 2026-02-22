@@ -55,7 +55,7 @@ const ProtectedLayout = ({
     }
 
     return (
-        <ConfigProvider apiUrl={API_URL} token={token}>
+        <ConfigProvider apiUrl={API_URL} token={token} onTokenExpired={() => logout("Token inválido")}>
             <DataProvider
                 token={token}
                 apiUrl={API_URL}
@@ -113,7 +113,11 @@ function App() {
     }, []);
 
     // Check if app is initialized
+    // StrictMode-safe guard: prevent double-firing
+    const initCheckStarted = useRef(false);
     useEffect(() => {
+        if (initCheckStarted.current) return;
+        initCheckStarted.current = true;
         const checkInitialization = async () => {
             try {
                 const response = await fetch(`${API_URL}/initialize/status`);
@@ -254,6 +258,15 @@ function App() {
     };
 
     const logout = (errorMessage = null) => {
+        // Notify backend of logout (fire-and-forget — don't block UI)
+        const currentToken = localStorage.getItem("accessToken");
+        if (currentToken && !(errorMessage && errorMessage.includes("Token inválido"))) {
+            fetch(`${API_URL}/logout`, {
+                method: "POST",
+                headers: { Authorization: `Bearer ${currentToken}` },
+            }).catch(() => { }); // Ignore errors — user is logging out regardless
+        }
+
         setToken(null);
         setUser(null);
         setRefreshToken(null);

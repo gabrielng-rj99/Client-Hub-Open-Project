@@ -181,7 +181,7 @@ const defaultAccessibility = {
     dyslexicFont: false,
 };
 
-export const ConfigProvider = ({ children }) => {
+export const ConfigProvider = ({ children, onTokenExpired }) => {
     // Load saved theme from localStorage to persist across refreshes
     const initialConfig = { ...defaultSettings };
     const savedTheme = localStorage.getItem("userTheme");
@@ -270,7 +270,13 @@ export const ConfigProvider = ({ children }) => {
                     Authorization: `Bearer ${token}`,
                 },
             });
-            if (!res.ok) throw new Error("Fetch settings error");
+            if (!res.ok) {
+                if (res.status === 401) {
+                    onTokenExpired?.();
+                    return;
+                }
+                throw new Error("Fetch settings error");
+            }
 
             const data = await res.json();
 
@@ -340,19 +346,8 @@ export const ConfigProvider = ({ children }) => {
 
         try {
             const response = await themeApi.getUserTheme("/api", token, () => {
-                // Token expired - fall back to localStorage
-                const savedMode = localStorage.getItem("themeMode");
-                const savedLayout = localStorage.getItem("layoutMode");
-                const savedFonts = localStorage.getItem("fontSettings");
-                if (savedMode) setThemeModeState(savedMode);
-                if (savedLayout) setLayoutModeState(savedLayout);
-                if (savedFonts) {
-                    try {
-                        setFontSettings(JSON.parse(savedFonts));
-                    } catch (e) {
-                        console.error("Error parsing saved fonts:", e);
-                    }
-                }
+                // Token expired - redirect to login
+                onTokenExpired?.();
             });
 
             // Set permissions
@@ -621,7 +616,11 @@ export const ConfigProvider = ({ children }) => {
         },
         [],
     );
+    // StrictMode-safe guard: prevent double-firing of initial settings load
+    const settingsLoadStarted = useRef(false);
     useEffect(() => {
+        if (settingsLoadStarted.current) return;
+        settingsLoadStarted.current = true;
         const loadAllSettings = async () => {
             setLoading(true);
             try {
