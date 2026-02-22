@@ -200,13 +200,20 @@ export default function Financial({ token, apiUrl, onTokenExpired }) {
     const { scrollRef, saveScrollPosition, restoreScrollPosition } =
         useScrollPreservation();
 
+    // StrictMode-safe guard: prevent double-firing of initial load
+    const initialLoadDone = useRef(false);
     useEffect(() => {
+        if (initialLoadDone.current) return;
+        initialLoadDone.current = true;
         loadData();
     }, []);
 
     // Lazy-load detailedSummary only when user switches to the dashboard tab
+    // StrictMode-safe guard
+    const detailedSummaryLoadStarted = useRef(false);
     useEffect(() => {
-        if (mainTab === "dashboard" && !detailedLoaded && !detailedLoading) {
+        if (mainTab === "dashboard" && !detailedLoaded && !detailedLoading && !detailedSummaryLoadStarted.current) {
+            detailedSummaryLoadStarted.current = true;
             loadDetailedSummary();
         }
     }, [mainTab, detailedLoaded, detailedLoading]);
@@ -272,25 +279,26 @@ export default function Financial({ token, apiUrl, onTokenExpired }) {
         }
 
         // Background load: auxiliary data for filter dropdowns, modals, and lists.
-        // These don't block initial render.
+        // These don't block initial render. Use cache (forceRefresh=false) since
+        // this data may already be loaded by Dashboard or Contracts pages.
         Promise.all([
-            fetchContracts({}, true)
+            fetchContracts({}, false)
                 .then((res) => setContracts(res?.data || []))
-                .catch(() => {}),
-            fetchClients({}, true)
+                .catch(() => { }),
+            fetchClients({}, false)
                 .then((res) => setClients(res?.data || []))
-                .catch(() => {}),
-            fetchCategories({}, true)
+                .catch(() => { }),
+            fetchCategories(false)
                 .then((res) => setCategories(res?.data || []))
-                .catch(() => {}),
+                .catch(() => { }),
             financialApi
                 .getUpcomingFinancial(apiUrl, token, 30, onTokenExpired)
                 .then((data) => setUpcomingFinancials(data || []))
-                .catch(() => {}),
+                .catch(() => { }),
             financialApi
                 .getOverdueFinancial(apiUrl, token, onTokenExpired)
                 .then((data) => setOverdueFinancials(data || []))
-                .catch(() => {}),
+                .catch(() => { }),
         ]).catch((err) => console.warn("Background data load:", err));
     };
 
@@ -594,10 +602,10 @@ export default function Financial({ token, apiUrl, onTokenExpired }) {
                 setSelectedFinancial((prev) =>
                     prev
                         ? {
-                              ...prev,
-                              paid_installments: paidCount,
-                              total_installments: totalCount,
-                          }
+                            ...prev,
+                            paid_installments: paidCount,
+                            total_installments: totalCount,
+                        }
                         : null,
                 );
             }
@@ -607,10 +615,10 @@ export default function Financial({ token, apiUrl, onTokenExpired }) {
                 prevFinancial.map((p) =>
                     p.id === pid
                         ? {
-                              ...p,
-                              paid_installments: paidCount,
-                              total_installments: totalCount,
-                          }
+                            ...p,
+                            paid_installments: paidCount,
+                            total_installments: totalCount,
+                        }
                         : p,
                 ),
             );
@@ -668,10 +676,10 @@ export default function Financial({ token, apiUrl, onTokenExpired }) {
             setSelectedFinancial((prev) =>
                 prev
                     ? {
-                          ...prev,
-                          paid_installments: paidCount,
-                          total_installments: totalCount,
-                      }
+                        ...prev,
+                        paid_installments: paidCount,
+                        total_installments: totalCount,
+                    }
                     : null,
             );
 
@@ -680,10 +688,10 @@ export default function Financial({ token, apiUrl, onTokenExpired }) {
                 prevFinancial.map((p) =>
                     p.id === selectedFinancial.id
                         ? {
-                              ...p,
-                              paid_installments: paidCount,
-                              total_installments: totalCount,
-                          }
+                            ...p,
+                            paid_installments: paidCount,
+                            total_installments: totalCount,
+                        }
                         : p,
                 ),
             );
@@ -722,8 +730,8 @@ export default function Financial({ token, apiUrl, onTokenExpired }) {
             backgroundColor: state.isSelected
                 ? "var(--primary-color, #3498db)"
                 : state.isFocused
-                  ? "var(--hover-bg, #f8f9fa)"
-                  : "var(--content-bg, white)",
+                    ? "var(--hover-bg, #f8f9fa)"
+                    : "var(--content-bg, white)",
             color: state.isSelected
                 ? "white"
                 : "var(--primary-text-color, #333)",
@@ -798,23 +806,23 @@ export default function Financial({ token, apiUrl, onTokenExpired }) {
             <>
                 {isPast
                     ? month.overdue_amount > 0 && (
-                          <div className="financial-breakdown-row financial-breakdown-overdue">
-                              <span>A Receber (Atrasado)</span>
-                              <span className="financial-value-overdue">
-                                  {financialApi.formatCurrency(
-                                      month.overdue_amount,
-                                  )}
-                              </span>
-                          </div>
-                      )
+                        <div className="financial-breakdown-row financial-breakdown-overdue">
+                            <span>A Receber (Atrasado)</span>
+                            <span className="financial-value-overdue">
+                                {financialApi.formatCurrency(
+                                    month.overdue_amount,
+                                )}
+                            </span>
+                        </div>
+                    )
                     : aReceber > 0 && (
-                          <div className="financial-breakdown-row">
-                              <span>A Receber</span>
-                              <span className="financial-value-pending">
-                                  {financialApi.formatCurrency(aReceber)}
-                              </span>
-                          </div>
-                      )}
+                        <div className="financial-breakdown-row">
+                            <span>A Receber</span>
+                            <span className="financial-value-pending">
+                                {financialApi.formatCurrency(aReceber)}
+                            </span>
+                        </div>
+                    )}
                 {month.already_received > 0 && (
                     <div className="financial-breakdown-row">
                         <span>Recebido</span>
@@ -1160,17 +1168,17 @@ export default function Financial({ token, apiUrl, onTokenExpired }) {
                                                         ) + 1;
                                                     const isCurrent =
                                                         year ==
-                                                            now.getFullYear() &&
+                                                        now.getFullYear() &&
                                                         monthNum - 1 ==
-                                                            now.getMonth();
+                                                        now.getMonth();
                                                     const isPast =
                                                         year <
-                                                            now.getFullYear() ||
+                                                        now.getFullYear() ||
                                                         (year ==
                                                             now.getFullYear() &&
                                                             monthNum <
-                                                                now.getMonth() +
-                                                                    1);
+                                                            now.getMonth() +
+                                                            1);
                                                     return (
                                                         <div
                                                             key={month.period}
@@ -1199,7 +1207,7 @@ export default function Financial({ token, apiUrl, onTokenExpired }) {
                                                                     : "pendentes"}
                                                                 {!isPast &&
                                                                     month.overdue_count >
-                                                                        0 &&
+                                                                    0 &&
                                                                     ` · ${month.overdue_count} atrasados`}
                                                             </div>
                                                         </div>
@@ -1264,19 +1272,19 @@ export default function Financial({ token, apiUrl, onTokenExpired }) {
                                                         const isCurrent =
                                                             name ===
                                                             monthNames[
-                                                                new Date().getMonth()
+                                                            new Date().getMonth()
                                                             ];
                                                         const isPast =
                                                             currentYear <
-                                                                now.getFullYear() ||
+                                                            now.getFullYear() ||
                                                             (currentYear ==
                                                                 now.getFullYear() &&
                                                                 monthNames.indexOf(
                                                                     name,
                                                                 ) +
-                                                                    1 <
-                                                                    now.getMonth() +
-                                                                        1);
+                                                                1 <
+                                                                now.getMonth() +
+                                                                1);
                                                         if (!month) {
                                                             return (
                                                                 <div
@@ -1350,7 +1358,7 @@ export default function Financial({ token, apiUrl, onTokenExpired }) {
                                                                         : "pendentes"}
                                                                     {!isPast &&
                                                                         month.overdue_count >
-                                                                            0 &&
+                                                                        0 &&
                                                                         ` · ${month.overdue_count} atrasados`}
                                                                 </div>
                                                             </div>
@@ -1545,22 +1553,22 @@ export default function Financial({ token, apiUrl, onTokenExpired }) {
                                                                         Number(
                                                                             year,
                                                                         ) ==
-                                                                            now.getFullYear() &&
+                                                                        now.getFullYear() &&
                                                                         monthNum -
-                                                                            1 ==
-                                                                            now.getMonth();
+                                                                        1 ==
+                                                                        now.getMonth();
                                                                     isPast =
                                                                         Number(
                                                                             year,
                                                                         ) <
-                                                                            now.getFullYear() ||
+                                                                        now.getFullYear() ||
                                                                         (Number(
                                                                             year,
                                                                         ) ==
                                                                             now.getFullYear() &&
                                                                             monthNum <
-                                                                                now.getMonth() +
-                                                                                    1);
+                                                                            now.getMonth() +
+                                                                            1);
                                                                 } else {
                                                                     // Yearly format: "2024"
                                                                     year =
@@ -1612,7 +1620,7 @@ export default function Financial({ token, apiUrl, onTokenExpired }) {
                                                                                 : "pendentes"}
                                                                             {!isPast &&
                                                                                 month.overdue_count >
-                                                                                    0 &&
+                                                                                0 &&
                                                                                 ` · ${month.overdue_count} atrasados`}
                                                                         </div>
                                                                     </div>
@@ -1748,58 +1756,58 @@ export default function Financial({ token, apiUrl, onTokenExpired }) {
                                                                         yearData.pending_amount;
                                                                     const isConcluded =
                                                                         yearData.pending_count ===
-                                                                            0 &&
+                                                                        0 &&
                                                                         yearData.overdue_count ===
-                                                                            0;
+                                                                        0;
 
                                                                     return (
                                                                         <>
                                                                             {isPast
                                                                                 ? yearData.overdue_amount >
-                                                                                      0 && (
-                                                                                      <div className="financial-breakdown-row financial-breakdown-overdue">
-                                                                                          <span>
-                                                                                              A
-                                                                                              Receber
-                                                                                              (Atrasado)
-                                                                                          </span>
-                                                                                          <span className="financial-value-overdue">
-                                                                                              {financialApi.formatCurrency(
-                                                                                                  yearData.overdue_amount,
-                                                                                              )}
-                                                                                          </span>
-                                                                                      </div>
-                                                                                  )
+                                                                                0 && (
+                                                                                    <div className="financial-breakdown-row financial-breakdown-overdue">
+                                                                                        <span>
+                                                                                            A
+                                                                                            Receber
+                                                                                            (Atrasado)
+                                                                                        </span>
+                                                                                        <span className="financial-value-overdue">
+                                                                                            {financialApi.formatCurrency(
+                                                                                                yearData.overdue_amount,
+                                                                                            )}
+                                                                                        </span>
+                                                                                    </div>
+                                                                                )
                                                                                 : aReceber >
-                                                                                      0 && (
-                                                                                      <div className="financial-breakdown-row">
-                                                                                          <span>
-                                                                                              A
-                                                                                              Receber
-                                                                                          </span>
-                                                                                          <span className="financial-value-pending">
-                                                                                              {financialApi.formatCurrency(
-                                                                                                  aReceber,
-                                                                                              )}
-                                                                                          </span>
-                                                                                      </div>
-                                                                                  )}
+                                                                                0 && (
+                                                                                    <div className="financial-breakdown-row">
+                                                                                        <span>
+                                                                                            A
+                                                                                            Receber
+                                                                                        </span>
+                                                                                        <span className="financial-value-pending">
+                                                                                            {financialApi.formatCurrency(
+                                                                                                aReceber,
+                                                                                            )}
+                                                                                        </span>
+                                                                                    </div>
+                                                                                )}
                                                                             {yearData.already_received >
                                                                                 0 && (
-                                                                                <div className="financial-breakdown-row">
-                                                                                    <span>
-                                                                                        Recebido
-                                                                                    </span>
-                                                                                    <span className="financial-value-received">
-                                                                                        {financialApi.formatCurrency(
-                                                                                            yearData.already_received,
-                                                                                        )}
-                                                                                    </span>
-                                                                                </div>
-                                                                            )}
+                                                                                    <div className="financial-breakdown-row">
+                                                                                        <span>
+                                                                                            Recebido
+                                                                                        </span>
+                                                                                        <span className="financial-value-received">
+                                                                                            {financialApi.formatCurrency(
+                                                                                                yearData.already_received,
+                                                                                            )}
+                                                                                        </span>
+                                                                                    </div>
+                                                                                )}
                                                                             {!isPast &&
                                                                                 yearData.overdue_amount >
-                                                                                    0 && (
+                                                                                0 && (
                                                                                     <div className="financial-breakdown-row financial-breakdown-overdue">
                                                                                         <span>
                                                                                             Atrasado
@@ -1814,7 +1822,7 @@ export default function Financial({ token, apiUrl, onTokenExpired }) {
                                                                             <div className="financial-breakdown-row financial-breakdown-total">
                                                                                 <span>
                                                                                     {isPast &&
-                                                                                    isConcluded
+                                                                                        isConcluded
                                                                                         ? "Total Recebido"
                                                                                         : "Total a receber"}
                                                                                 </span>
@@ -1841,7 +1849,7 @@ export default function Financial({ token, apiUrl, onTokenExpired }) {
                                                                     : "pendentes"}
                                                                 {!isPast &&
                                                                     yearData.overdue_count >
-                                                                        0 &&
+                                                                    0 &&
                                                                     ` · ${yearData.overdue_count} atrasados`}
                                                             </div>
                                                         </div>
@@ -1909,16 +1917,16 @@ export default function Financial({ token, apiUrl, onTokenExpired }) {
                                                         .slice(
                                                             (overdueCurrentPage -
                                                                 1) *
-                                                                overdueItemsPerPage,
+                                                            overdueItemsPerPage,
                                                             overdueCurrentPage *
-                                                                overdueItemsPerPage,
+                                                            overdueItemsPerPage,
                                                         )
                                                         .map((financial) => {
                                                             const dueDate =
                                                                 financial.due_date
                                                                     ? new Date(
-                                                                          financial.due_date,
-                                                                      )
+                                                                        financial.due_date,
+                                                                    )
                                                                     : null;
                                                             const today =
                                                                 new Date();
@@ -1931,15 +1939,15 @@ export default function Financial({ token, apiUrl, onTokenExpired }) {
                                                             const diffDays =
                                                                 dueDate
                                                                     ? Math.abs(
-                                                                          Math.ceil(
-                                                                              (today -
-                                                                                  dueDate) /
-                                                                                  (1000 *
-                                                                                      60 *
-                                                                                      60 *
-                                                                                      24),
-                                                                          ),
-                                                                      )
+                                                                        Math.ceil(
+                                                                            (today -
+                                                                                dueDate) /
+                                                                            (1000 *
+                                                                                60 *
+                                                                                60 *
+                                                                                24),
+                                                                        ),
+                                                                    )
                                                                     : null;
 
                                                             return (
@@ -1969,14 +1977,14 @@ export default function Financial({ token, apiUrl, onTokenExpired }) {
                                                                     <td className="financial-overdue-date">
                                                                         {dueDate
                                                                             ? dueDate.toLocaleDateString(
-                                                                                  "pt-BR",
-                                                                              )
+                                                                                "pt-BR",
+                                                                            )
                                                                             : "—"}
                                                                     </td>
                                                                     <td>
                                                                         <span className="financial-days-badge financial-days-overdue">
                                                                             {diffDays !==
-                                                                            null
+                                                                                null
                                                                                 ? `${diffDays} dias`
                                                                                 : "—"}
                                                                         </span>
@@ -2129,16 +2137,16 @@ export default function Financial({ token, apiUrl, onTokenExpired }) {
                                                         .slice(
                                                             (upcomingCurrentPage -
                                                                 1) *
-                                                                upcomingItemsPerPage,
+                                                            upcomingItemsPerPage,
                                                             upcomingCurrentPage *
-                                                                upcomingItemsPerPage,
+                                                            upcomingItemsPerPage,
                                                         )
                                                         .map((financial) => {
                                                             const dueDate =
                                                                 financial.due_date
                                                                     ? new Date(
-                                                                          financial.due_date,
-                                                                      )
+                                                                        financial.due_date,
+                                                                    )
                                                                     : null;
                                                             const today =
                                                                 new Date();
@@ -2151,13 +2159,13 @@ export default function Financial({ token, apiUrl, onTokenExpired }) {
                                                             const diffDays =
                                                                 dueDate
                                                                     ? Math.ceil(
-                                                                          (dueDate -
-                                                                              today) /
-                                                                              (1000 *
-                                                                                  60 *
-                                                                                  60 *
-                                                                                  24),
-                                                                      )
+                                                                        (dueDate -
+                                                                            today) /
+                                                                        (1000 *
+                                                                            60 *
+                                                                            60 *
+                                                                            24),
+                                                                    )
                                                                     : null;
 
                                                             return (
@@ -2187,31 +2195,30 @@ export default function Financial({ token, apiUrl, onTokenExpired }) {
                                                                     <td>
                                                                         {dueDate
                                                                             ? dueDate.toLocaleDateString(
-                                                                                  "pt-BR",
-                                                                              )
+                                                                                "pt-BR",
+                                                                            )
                                                                             : "—"}
                                                                     </td>
                                                                     <td>
                                                                         <span
-                                                                            className={`financial-days-badge ${
-                                                                                diffDays <=
+                                                                            className={`financial-days-badge ${diffDays <=
                                                                                 3
-                                                                                    ? "financial-days-urgent"
-                                                                                    : diffDays <=
-                                                                                        7
-                                                                                      ? "financial-days-soon"
-                                                                                      : ""
-                                                                            }`}
+                                                                                ? "financial-days-urgent"
+                                                                                : diffDays <=
+                                                                                    7
+                                                                                    ? "financial-days-soon"
+                                                                                    : ""
+                                                                                }`}
                                                                         >
                                                                             {diffDays !==
-                                                                            null
+                                                                                null
                                                                                 ? diffDays ===
-                                                                                  0
+                                                                                    0
                                                                                     ? "Hoje"
                                                                                     : diffDays ===
                                                                                         1
-                                                                                      ? "Amanhã"
-                                                                                      : `${diffDays} dias`
+                                                                                        ? "Amanhã"
+                                                                                        : `${diffDays} dias`
                                                                                 : "—"}
                                                                         </span>
                                                                     </td>
@@ -2368,9 +2375,9 @@ export default function Financial({ token, apiUrl, onTokenExpired }) {
                             value={
                                 clientFilter
                                     ? {
-                                          value: clientFilter,
-                                          label: clientFilter,
-                                      }
+                                        value: clientFilter,
+                                        label: clientFilter,
+                                    }
                                     : null
                             }
                             onChange={(selected) =>
@@ -2397,9 +2404,9 @@ export default function Financial({ token, apiUrl, onTokenExpired }) {
                             value={
                                 contractFilter
                                     ? {
-                                          value: contractFilter,
-                                          label: contractFilter,
-                                      }
+                                        value: contractFilter,
+                                        label: contractFilter,
+                                    }
                                     : null
                             }
                             onChange={(selected) =>
@@ -2428,13 +2435,13 @@ export default function Financial({ token, apiUrl, onTokenExpired }) {
                             value={
                                 categoryFilter
                                     ? {
-                                          value: categoryFilter,
-                                          label:
-                                              categories.find(
-                                                  (c) =>
-                                                      c.id === categoryFilter,
-                                              )?.name || "",
-                                      }
+                                        value: categoryFilter,
+                                        label:
+                                            categories.find(
+                                                (c) =>
+                                                    c.id === categoryFilter,
+                                            )?.name || "",
+                                    }
                                     : null
                             }
                             onChange={(selected) =>
@@ -2463,14 +2470,14 @@ export default function Financial({ token, apiUrl, onTokenExpired }) {
                             value={
                                 subcategoryFilter
                                     ? {
-                                          value: subcategoryFilter,
-                                          label:
-                                              subcategories.find(
-                                                  (s) =>
-                                                      s.id ===
-                                                      subcategoryFilter,
-                                              )?.name || "",
-                                      }
+                                        value: subcategoryFilter,
+                                        label:
+                                            subcategories.find(
+                                                (s) =>
+                                                    s.id ===
+                                                    subcategoryFilter,
+                                            )?.name || "",
+                                    }
                                     : null
                             }
                             onChange={(selected) =>
@@ -2558,24 +2565,24 @@ export default function Financial({ token, apiUrl, onTokenExpired }) {
                                     value={
                                         sortBy
                                             ? {
-                                                  value: sortBy,
-                                                  label: (() => {
-                                                      const sortLabels = {
-                                                          client:
-                                                              config.labels
-                                                                  ?.client ||
-                                                              "Cliente",
-                                                          contract:
-                                                              config.labels
-                                                                  ?.contract ||
-                                                              "Contrato",
-                                                          type: "Tipo",
-                                                          value: "Valor",
-                                                          progress: "Progresso",
-                                                      };
-                                                      return sortLabels[sortBy];
-                                                  })(),
-                                              }
+                                                value: sortBy,
+                                                label: (() => {
+                                                    const sortLabels = {
+                                                        client:
+                                                            config.labels
+                                                                ?.client ||
+                                                            "Cliente",
+                                                        contract:
+                                                            config.labels
+                                                                ?.contract ||
+                                                            "Contrato",
+                                                        type: "Tipo",
+                                                        value: "Valor",
+                                                        progress: "Progresso",
+                                                    };
+                                                    return sortLabels[sortBy];
+                                                })(),
+                                            }
                                             : null
                                     }
                                     onChange={(selected) => {
@@ -2612,12 +2619,12 @@ export default function Financial({ token, apiUrl, onTokenExpired }) {
                                     value={
                                         sortOrder
                                             ? {
-                                                  value: sortOrder,
-                                                  label:
-                                                      sortOrder === "asc"
-                                                          ? "Crescente"
-                                                          : "Decrescente",
-                                              }
+                                                value: sortOrder,
+                                                label:
+                                                    sortOrder === "asc"
+                                                        ? "Crescente"
+                                                        : "Decrescente",
+                                            }
                                             : null
                                     }
                                     onChange={(selected) => {
@@ -2686,11 +2693,11 @@ export default function Financial({ token, apiUrl, onTokenExpired }) {
                                         const progress =
                                             financial.total_installments > 0
                                                 ? Math.round(
-                                                      ((financial.paid_installments ||
-                                                          0) /
-                                                          financial.total_installments) *
-                                                          100,
-                                                  )
+                                                    ((financial.paid_installments ||
+                                                        0) /
+                                                        financial.total_installments) *
+                                                    100,
+                                                )
                                                 : 0;
 
                                         return (
@@ -2726,18 +2733,18 @@ export default function Financial({ token, apiUrl, onTokenExpired }) {
                                                 <td>
                                                     {financialApi.formatCurrency(
                                                         financial.total_client_value ||
-                                                            financial.client_value,
+                                                        financial.client_value,
                                                     )}
                                                 </td>
                                                 <td>
                                                     {financialApi.formatCurrency(
                                                         financial.total_received_value ||
-                                                            financial.received_value,
+                                                        financial.received_value,
                                                     )}
                                                 </td>
                                                 <td>
                                                     {financial.financial_type ===
-                                                    "personalizado" ? (
+                                                        "personalizado" ? (
                                                         <div className="financial-progress">
                                                             <div className="financial-progress-bar">
                                                                 <div
@@ -2941,21 +2948,21 @@ export default function Financial({ token, apiUrl, onTokenExpired }) {
                                                 <div className="financial-modal-value-amount">
                                                     {financialApi.formatCurrency(
                                                         selectedFinancial.total_client_value ||
-                                                            selectedFinancial.client_value,
+                                                        selectedFinancial.client_value,
                                                     )}
                                                 </div>
                                                 {selectedFinancial.financial_type ===
                                                     "personalizado" && (
-                                                    <div className="financial-modal-value-paid">
-                                                        {config.labels
-                                                            ?.client ||
-                                                            "Cliente"}{" "}
-                                                        pagou{" "}
-                                                        {financialApi.formatCurrency(
-                                                            paidClientTotal,
-                                                        )}
-                                                    </div>
-                                                )}
+                                                        <div className="financial-modal-value-paid">
+                                                            {config.labels
+                                                                ?.client ||
+                                                                "Cliente"}{" "}
+                                                            pagou{" "}
+                                                            {financialApi.formatCurrency(
+                                                                paidClientTotal,
+                                                            )}
+                                                        </div>
+                                                    )}
                                             </div>
                                             <div className="financial-modal-value-card financial-modal-value-received">
                                                 <div className="financial-modal-value-label">
@@ -2964,18 +2971,18 @@ export default function Financial({ token, apiUrl, onTokenExpired }) {
                                                 <div className="financial-modal-value-amount">
                                                     {financialApi.formatCurrency(
                                                         selectedFinancial.total_received_value ||
-                                                            selectedFinancial.received_value,
+                                                        selectedFinancial.received_value,
                                                     )}
                                                 </div>
                                                 {selectedFinancial.financial_type ===
                                                     "personalizado" && (
-                                                    <div className="financial-modal-value-paid">
-                                                        Você recebeu{" "}
-                                                        {financialApi.formatCurrency(
-                                                            paidReceivedTotal,
-                                                        )}
-                                                    </div>
-                                                )}
+                                                        <div className="financial-modal-value-paid">
+                                                            Você recebeu{" "}
+                                                            {financialApi.formatCurrency(
+                                                                paidReceivedTotal,
+                                                            )}
+                                                        </div>
+                                                    )}
                                             </div>
                                         </div>
                                     </div>
@@ -3053,7 +3060,7 @@ export default function Financial({ token, apiUrl, onTokenExpired }) {
                                                                 )}
                                                                 <div className="financial-modal-installment-actions">
                                                                     {inst.status ===
-                                                                    "pago" ? (
+                                                                        "pago" ? (
                                                                         <button
                                                                             className="financial-modal-installment-btn financial-modal-installment-unpay"
                                                                             onClick={(

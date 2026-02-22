@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useConfig } from "../contexts/ConfigContext";
 import { useData } from "../contexts/DataContext";
 import "./styles/Dashboard.css";
@@ -74,7 +74,10 @@ export default function Dashboard({ token, apiUrl, onTokenExpired }) {
     }, [activeInfoTab, setPersistentFilter]);
 
     // Load dashboard settings from backend
+    // StrictMode-safe guard: prevent double-firing
+    const dashSettingsLoaded = useRef(false);
     useEffect(() => {
+        if (dashSettingsLoaded.current) return;
         const loadDashboardSettings = async () => {
             try {
                 const response = await fetch(
@@ -94,6 +97,7 @@ export default function Dashboard({ token, apiUrl, onTokenExpired }) {
             }
         };
         if (token && apiUrl) {
+            dashSettingsLoaded.current = true;
             loadDashboardSettings();
         }
     }, [token, apiUrl]);
@@ -101,7 +105,11 @@ export default function Dashboard({ token, apiUrl, onTokenExpired }) {
     // Two-phase loading:
     // Phase 1: Load counts instantly (single lightweight query)
     // Phase 2: Load detailed data in background for tabs (birthdays, expiring, etc.)
+    // StrictMode-safe guard: prevent double-firing of initial load
+    const dataLoadStarted = useRef(false);
     useEffect(() => {
+        if (dataLoadStarted.current) return;
+        dataLoadStarted.current = true;
         loadCounts();
         loadData();
     }, []);
@@ -134,11 +142,13 @@ export default function Dashboard({ token, apiUrl, onTokenExpired }) {
 
         try {
             // Phase 2: Fetch full data for tabs (birthdays, expiring, recent activity)
+            // Use cache (forceRefresh=false) since this data may already be
+            // loaded by Contracts, Financial, or Clients pages.
             const [contractsData, clientsData, categoriesData] =
                 await Promise.all([
-                    fetchContracts({}, true),
-                    fetchClients({}, true),
-                    fetchCategories(true),
+                    fetchContracts({}, false),
+                    fetchClients({}, false),
+                    fetchCategories(false),
                 ]);
 
             setContracts(contractsData.data || []);
@@ -525,8 +535,8 @@ export default function Dashboard({ token, apiUrl, onTokenExpired }) {
                         <button
                             className="dashboard-action-btn"
                             onClick={() =>
-                                (window.location.hash =
-                                    "#/contracts?action=new")
+                            (window.location.hash =
+                                "#/contracts?action=new")
                             }
                         >
                             <span className="action-icon">📄</span>
@@ -554,8 +564,8 @@ export default function Dashboard({ token, apiUrl, onTokenExpired }) {
                         <button
                             className="dashboard-action-btn"
                             onClick={() =>
-                                (window.location.hash =
-                                    "#/categories?action=new")
+                            (window.location.hash =
+                                "#/categories?action=new")
                             }
                         >
                             <span className="action-icon">🏷️</span>
@@ -652,7 +662,7 @@ export default function Dashboard({ token, apiUrl, onTokenExpired }) {
                                         {birthdayClients
                                             .slice(
                                                 (birthdayPage - 1) *
-                                                    itemsPerPage,
+                                                itemsPerPage,
                                                 birthdayPage * itemsPerPage,
                                             )
                                             .map((client) => {
@@ -661,22 +671,22 @@ export default function Dashboard({ token, apiUrl, onTokenExpired }) {
                                                     contracts.filter(
                                                         (c) =>
                                                             c.client_id ===
-                                                                client.id &&
+                                                            client.id &&
                                                             !c.archived_at,
                                                     );
                                                 const lastContract =
                                                     clientContracts.length > 0
                                                         ? clientContracts.sort(
-                                                              (a, b) =>
-                                                                  new Date(
-                                                                      b.end_date ||
-                                                                          0,
-                                                                  ) -
-                                                                  new Date(
-                                                                      a.end_date ||
-                                                                          0,
-                                                                  ),
-                                                          )[0]
+                                                            (a, b) =>
+                                                                new Date(
+                                                                    b.end_date ||
+                                                                    0,
+                                                                ) -
+                                                                new Date(
+                                                                    a.end_date ||
+                                                                    0,
+                                                                ),
+                                                        )[0]
                                                         : null;
 
                                                 // Format birth date
@@ -736,7 +746,7 @@ export default function Dashboard({ token, apiUrl, onTokenExpired }) {
                                                 Página {birthdayPage} de{" "}
                                                 {Math.ceil(
                                                     birthdayClients.length /
-                                                        itemsPerPage,
+                                                    itemsPerPage,
                                                 )}
                                             </span>
                                             <button
@@ -745,7 +755,7 @@ export default function Dashboard({ token, apiUrl, onTokenExpired }) {
                                                     birthdayPage >=
                                                     Math.ceil(
                                                         birthdayClients.length /
-                                                            itemsPerPage,
+                                                        itemsPerPage,
                                                     )
                                                 }
                                                 onClick={() =>
@@ -779,7 +789,7 @@ export default function Dashboard({ token, apiUrl, onTokenExpired }) {
                                         {expiringContracts
                                             .slice(
                                                 (expiringPage - 1) *
-                                                    itemsPerPage,
+                                                itemsPerPage,
                                                 expiringPage * itemsPerPage,
                                             )
                                             .map((contract) => {
@@ -789,7 +799,7 @@ export default function Dashboard({ token, apiUrl, onTokenExpired }) {
                                                 const now = new Date();
                                                 const daysLeft = Math.ceil(
                                                     (endDate - now) /
-                                                        (1000 * 60 * 60 * 24),
+                                                    (1000 * 60 * 60 * 24),
                                                 );
                                                 // Find client for this contract
                                                 const client = clients.find(
@@ -824,44 +834,44 @@ export default function Dashboard({ token, apiUrl, onTokenExpired }) {
                                     </div>
                                     {expiringContracts.length >
                                         itemsPerPage && (
-                                        <div className="dashboard-pagination">
-                                            <button
-                                                className="pagination-btn"
-                                                disabled={expiringPage === 1}
-                                                onClick={() =>
-                                                    setExpiringPage(
-                                                        (p) => p - 1,
-                                                    )
-                                                }
-                                            >
-                                                ← Anterior
-                                            </button>
-                                            <span className="pagination-info">
-                                                Página {expiringPage} de{" "}
-                                                {Math.ceil(
-                                                    expiringContracts.length /
-                                                        itemsPerPage,
-                                                )}
-                                            </span>
-                                            <button
-                                                className="pagination-btn"
-                                                disabled={
-                                                    expiringPage >=
-                                                    Math.ceil(
+                                            <div className="dashboard-pagination">
+                                                <button
+                                                    className="pagination-btn"
+                                                    disabled={expiringPage === 1}
+                                                    onClick={() =>
+                                                        setExpiringPage(
+                                                            (p) => p - 1,
+                                                        )
+                                                    }
+                                                >
+                                                    ← Anterior
+                                                </button>
+                                                <span className="pagination-info">
+                                                    Página {expiringPage} de{" "}
+                                                    {Math.ceil(
                                                         expiringContracts.length /
+                                                        itemsPerPage,
+                                                    )}
+                                                </span>
+                                                <button
+                                                    className="pagination-btn"
+                                                    disabled={
+                                                        expiringPage >=
+                                                        Math.ceil(
+                                                            expiringContracts.length /
                                                             itemsPerPage,
-                                                    )
-                                                }
-                                                onClick={() =>
-                                                    setExpiringPage(
-                                                        (p) => p + 1,
-                                                    )
-                                                }
-                                            >
-                                                Próxima →
-                                            </button>
-                                        </div>
-                                    )}
+                                                        )
+                                                    }
+                                                    onClick={() =>
+                                                        setExpiringPage(
+                                                            (p) => p + 1,
+                                                        )
+                                                    }
+                                                >
+                                                    Próxima →
+                                                </button>
+                                            </div>
+                                        )}
                                 </>
                             )}
                         </>
@@ -883,7 +893,7 @@ export default function Dashboard({ token, apiUrl, onTokenExpired }) {
                                         {expiredContracts
                                             .slice(
                                                 (expiredPage - 1) *
-                                                    itemsPerPage,
+                                                itemsPerPage,
                                                 expiredPage * itemsPerPage,
                                             )
                                             .map((contract) => {
@@ -893,7 +903,7 @@ export default function Dashboard({ token, apiUrl, onTokenExpired }) {
                                                 const now = new Date();
                                                 const daysExpired = Math.ceil(
                                                     (now - endDate) /
-                                                        (1000 * 60 * 60 * 24),
+                                                    (1000 * 60 * 60 * 24),
                                                 );
                                                 // Find client for this contract
                                                 const client = clients.find(
@@ -942,7 +952,7 @@ export default function Dashboard({ token, apiUrl, onTokenExpired }) {
                                                 Página {expiredPage} de{" "}
                                                 {Math.ceil(
                                                     expiredContracts.length /
-                                                        itemsPerPage,
+                                                    itemsPerPage,
                                                 )}
                                             </span>
                                             <button
@@ -951,7 +961,7 @@ export default function Dashboard({ token, apiUrl, onTokenExpired }) {
                                                     expiredPage >=
                                                     Math.ceil(
                                                         expiredContracts.length /
-                                                            itemsPerPage,
+                                                        itemsPerPage,
                                                     )
                                                 }
                                                 onClick={() =>

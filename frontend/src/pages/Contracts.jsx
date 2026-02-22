@@ -83,8 +83,8 @@ export default function Contracts({ token, apiUrl, onTokenExpired }) {
             backgroundColor: state.isSelected
                 ? "var(--primary-color, #3498db)"
                 : state.isFocused
-                  ? "var(--hover-bg, #f8f9fa)"
-                  : "var(--content-bg, white)",
+                    ? "var(--hover-bg, #f8f9fa)"
+                    : "var(--content-bg, white)",
             color: state.isSelected
                 ? "white"
                 : "var(--primary-text-color, #333)",
@@ -182,10 +182,14 @@ export default function Contracts({ token, apiUrl, onTokenExpired }) {
 
     const filtersContainerRef = useRef(null);
 
-    // Sempre fazer fresh request ao carregar a página
-    // Cache é usado apenas para buscas/filtros durante a mesma sessão
+    // Load initial data from cache (forceRefresh=false) — data is refreshed
+    // after mutations (create/update/delete) via loadContracts(true).
+    // StrictMode-safe guard: prevent double-firing of initial load
+    const contractsInitLoadDone = useRef(false);
     useEffect(() => {
-        loadInitialData(true);
+        if (contractsInitLoadDone.current) return;
+        contractsInitLoadDone.current = true;
+        loadInitialData(false);
     }, []);
 
     // Equalize filter button widths
@@ -720,9 +724,9 @@ export default function Contracts({ token, apiUrl, onTokenExpired }) {
                     value={
                         clientNameFilter
                             ? {
-                                  value: clientNameFilter,
-                                  label: clientNameFilter,
-                              }
+                                value: clientNameFilter,
+                                label: clientNameFilter,
+                            }
                             : null
                     }
                     onChange={(selected) =>
@@ -749,12 +753,12 @@ export default function Contracts({ token, apiUrl, onTokenExpired }) {
                     value={
                         categoryIdFilter
                             ? {
-                                  value: categoryIdFilter,
-                                  label:
-                                      categories.find(
-                                          (c) => c.id === categoryIdFilter,
-                                      )?.name || "",
-                              }
+                                value: categoryIdFilter,
+                                label:
+                                    categories.find(
+                                        (c) => c.id === categoryIdFilter,
+                                    )?.name || "",
+                            }
                             : null
                     }
                     onChange={(selected) =>
@@ -781,12 +785,12 @@ export default function Contracts({ token, apiUrl, onTokenExpired }) {
                     value={
                         subcategoryIdFilter
                             ? {
-                                  value: subcategoryIdFilter,
-                                  label:
-                                      availableSubcategories.find(
-                                          (s) => s.id === subcategoryIdFilter,
-                                      )?.name || "",
-                              }
+                                value: subcategoryIdFilter,
+                                label:
+                                    availableSubcategories.find(
+                                        (s) => s.id === subcategoryIdFilter,
+                                    )?.name || "",
+                            }
                             : null
                     }
                     onChange={(selected) =>
@@ -831,22 +835,22 @@ export default function Contracts({ token, apiUrl, onTokenExpired }) {
                         value={
                             sortBy
                                 ? {
-                                      value: sortBy,
-                                      label: (() => {
-                                          const sortLabels = {
-                                              model:
-                                                  config.labels.model ||
-                                                  "Nome/Modelo",
-                                              start_date: "Data de Início",
-                                              end_date: "Data de Vencimento",
-                                              client:
-                                                  config.labels.client ||
-                                                  "Cliente",
-                                              status: "Status",
-                                          };
-                                          return sortLabels[sortBy];
-                                      })(),
-                                  }
+                                    value: sortBy,
+                                    label: (() => {
+                                        const sortLabels = {
+                                            model:
+                                                config.labels.model ||
+                                                "Nome/Modelo",
+                                            start_date: "Data de Início",
+                                            end_date: "Data de Vencimento",
+                                            client:
+                                                config.labels.client ||
+                                                "Cliente",
+                                            status: "Status",
+                                        };
+                                        return sortLabels[sortBy];
+                                    })(),
+                                }
                                 : null
                         }
                         onChange={(selected) => {
@@ -891,12 +895,12 @@ export default function Contracts({ token, apiUrl, onTokenExpired }) {
                         value={
                             sortOrder
                                 ? {
-                                      value: sortOrder,
-                                      label:
-                                          sortOrder === "asc"
-                                              ? "Crescente"
-                                              : "Decrescente",
-                                  }
+                                    value: sortOrder,
+                                    label:
+                                        sortOrder === "asc"
+                                            ? "Crescente"
+                                            : "Decrescente",
+                                }
                                 : null
                         }
                         onChange={(selected) => {
@@ -1066,8 +1070,8 @@ export default function Contracts({ token, apiUrl, onTokenExpired }) {
                                 value={
                                     selectedContract.subcategory_id
                                         ? categoryBySubcategoryId.get(
-                                              selectedContract.subcategory_id,
-                                          )?.name || "-"
+                                            selectedContract.subcategory_id,
+                                        )?.name || "-"
                                         : "-"
                                 }
                             />
@@ -1078,10 +1082,10 @@ export default function Contracts({ token, apiUrl, onTokenExpired }) {
                                 value={
                                     selectedContract.subcategory_id
                                         ? subcategoryNameById.get(
-                                              selectedContract.subcategory_id,
-                                          ) ||
-                                          selectedContract.line?.name ||
-                                          "-"
+                                            selectedContract.subcategory_id,
+                                        ) ||
+                                        selectedContract.line?.name ||
+                                        "-"
                                         : "-"
                                 }
                             />
