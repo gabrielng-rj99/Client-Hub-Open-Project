@@ -26,6 +26,7 @@ The original `GetFinancialDetailedSummary()` function was generating **15,000–
 ### 1. **Batch Queries Over Individual Fetches**
 
 ❌ **Anti-pattern (N+1)**:
+
 ```go
 // For each of 100 contracts...
 for _, contract := range contracts {
@@ -36,6 +37,7 @@ for _, contract := range contracts {
 ```
 
 ✅ **Correct Pattern (Batch)**:
+
 ```go
 // Fetch all 500 installments in ONE query
 installments, err := repo.GetInstallmentsByContractIDsBatch(contractIDs)
@@ -43,6 +45,7 @@ installments, err := repo.GetInstallmentsByContractIDsBatch(contractIDs)
 ```
 
 **When to use**:
+
 - Loading related data for multiple parent records
 - Processing collections of IDs
 - Joining across multiple entities
@@ -52,6 +55,7 @@ installments, err := repo.GetInstallmentsByContractIDsBatch(contractIDs)
 ### 2. **Aggregate at Database Level, Not Application**
 
 ❌ **Anti-pattern (App-level aggregation)**:
+
 ```go
 var totalPaid float64
 for _, installment := range installments {
@@ -63,6 +67,7 @@ for _, installment := range installments {
 ```
 
 ✅ **Correct Pattern (SQL aggregation)**:
+
 ```sql
 SELECT SUM(value) as total_paid
 FROM financial_installments
@@ -71,6 +76,7 @@ WHERE status = 'pago' AND contract_id = ANY($1)
 ```
 
 **When to use**:
+
 - Sums, counts, averages
 - Grouping across large datasets
 - Time-range queries
@@ -80,6 +86,7 @@ WHERE status = 'pago' AND contract_id = ANY($1)
 ### 3. **Enrich API Responses with JOINed Data**
 
 ❌ **Anti-pattern (Multiple API Calls)**:
+
 ```javascript
 // Frontend makes separate calls to build a table
 const contracts = await fetch('/api/contracts');        // 1 query
@@ -90,6 +97,7 @@ const categories = await fetch('/api/categories');      // 1 query
 ```
 
 ✅ **Correct Pattern (Enriched Response)**:
+
 ```go
 // Backend JOINs related tables and returns everything inline
 // SELECT c.*, cl.name as client_name, cat.name as category_name, ...
@@ -102,15 +110,18 @@ contracts, err := repo.GetAllContractsWithEnrichedData()
 ```
 
 **Applied To:**
+
 - `GET /contracts` — Now includes `client_name`, `client_nickname`, `category_name`, `subcategory_name` inline
 - `GET /financial` — Now includes `contract_model`, `client_name`, `category_name`, `subcategory_name`, `contract_start`, `contract_end` inline
 
 **Why This Matters:**
+
 - **Contracts page**: Was making 3 parallel API calls (`/contracts` + `/clients` + `/categories`). Now makes 1 call with enriched data. Renders immediately instead of waiting for all 3 responses.
 - **Financial page**: Was making 6 parallel API calls (`/financial` + `/contracts` + `/clients` + `/categories` + `/upcoming` + `/overdue`). Primary table now loads from 1 enriched call. Auxiliary data loads in background for modals/filters.
 - **Real-world impact**: Page becomes interactive 3-6x faster depending on network latency.
 
 **Implementation**:
+
 ```sql
 -- Backend query (one example)
 SELECT
@@ -139,12 +150,14 @@ const contractCategory = contract.category_name;   // Data already present
 ### 4. **Use Covering Indexes for Large Tables**
 
 ❌ **Anti-pattern (No index)**:
+
 ```sql
 SELECT COUNT(*) FROM financial_installments WHERE status = 'pago';
 -- Full table scan (10,000+ rows)
 ```
 
 ✅ **Correct Pattern (Covering index)**:
+
 ```sql
 -- Create composite covering index
 CREATE INDEX idx_installments_status_value_contract 
@@ -156,6 +169,7 @@ SELECT COUNT(*) FROM financial_installments WHERE status = 'pago';
 ```
 
 **Current indexes** (in schema):
+
 - `idx_financial_installments_contract_status`: Status filtering by contract
 - `idx_financial_installments_due_date`: Date range queries
 - `idx_financial_installments_status_value`: Status + aggregations
@@ -165,6 +179,7 @@ SELECT COUNT(*) FROM financial_installments WHERE status = 'pago';
 ### 5. **Pagination for Large Result Sets**
 
 ❌ **Anti-pattern (No limit)**:
+
 ```go
 // Load ALL 5,000 contracts at once
 contracts, err := repo.GetAllContracts()
@@ -172,6 +187,7 @@ contracts, err := repo.GetAllContracts()
 ```
 
 ✅ **Correct Pattern (Pagination)**:
+
 ```go
 // Load 20 per page
 contracts, total, err := repo.GetContractsPaginated(limit: 20, offset: 0)
@@ -179,6 +195,7 @@ contracts, total, err := repo.GetContractsPaginated(limit: 20, offset: 0)
 ```
 
 **Implementation**:
+
 - All list endpoints now support `limit` (default 20, max 500) and `offset`
 - Backend returns `{data, total, limit, offset}`
 - Frontend implements infinite scroll or page navigation
@@ -188,6 +205,7 @@ contracts, total, err := repo.GetContractsPaginated(limit: 20, offset: 0)
 ### 6. **Frontend Request Patterns: Load Critical Data First, Auxiliary Data in Background**
 
 ❌ **Anti-pattern (Blocking All Requests)**:
+
 ```javascript
 // Frontend waits for Promise.all() to complete before rendering
 const [financial, contracts, clients, categories, upcoming, overdue] = 
@@ -203,6 +221,7 @@ const [financial, contracts, clients, categories, upcoming, overdue] =
 ```
 
 ✅ **Correct Pattern (Progressive Loading)**:
+
 ```javascript
 // 1. Load critical data FIRST — render immediately
 try {
@@ -232,16 +251,19 @@ Promise.all([
 ```
 
 **Applied To:**
+
 - **Contracts page**: Loads enriched contracts first (instant), then clients/categories in background
 - **Financial page**: Loads enriched financial records first (instant), then contracts/clients/categories/upcoming/overdue in background
 
 **Why This Matters:**
+
 - Page becomes interactive 3-6x faster
 - User can start reading/scrolling while dropdowns populate
 - Network latency becomes invisible to user perception
 - Graceful degradation: if background call fails, page still works (just without filters temporarily)
 
 **Implementation**:
+
 ```javascript
 const loadData = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -258,12 +280,76 @@ const loadData = async (silent = false) => {
     
     // SECONDARY: Background refresh of auxiliary data (non-blocking)
     Promise.all([
-        fetchContracts({}, true).then(res => setContracts(res?.data || [])).catch(() => {}),
-        fetchClients({}, true).then(res => setClients(res?.data || [])).catch(() => {}),
-        fetchCategories({}, true).then(res => setCategories(res?.data || [])).catch(() => {}),
+        fetchContracts({}, false).then(res => setContracts(res?.data || [])).catch(() => {}),
+        fetchClients({}, false).then(res => setClients(res?.data || [])).catch(() => {}),
+        fetchCategories(false).then(res => setCategories(res?.data || [])).catch(() => {}),
     ]).catch(err => console.warn("Background load:", err));
 };
 ```
+
+> **⚠️ Gotcha**: `fetchCategories` accepts `(forceRefresh)` only, while `fetchContracts`/`fetchClients` accept `(params, forceRefresh)`. Calling `fetchCategories({}, false)` passes `{}` as `forceRefresh` (truthy in JavaScript), bypassing the cache entirely. Always verify call signatures match function definitions.
+
+---
+
+### 7. **Frontend DataContext Cache with TTL**
+
+The `DataContext` provides centralized fetch functions with in-memory caching via `cacheManager`.
+
+✅ **Correct Pattern (Use cache for auxiliary data)**:
+
+```javascript
+// Background auxiliary data — use cache (forceRefresh=false)
+fetchCategories(false)   // Uses cached data if < 5 min old
+fetchContracts({}, false) // Same — cache hit eliminates the request
+fetchClients({}, false)   // Same
+```
+
+❌ **Anti-pattern (Bypass cache unintentionally)**:
+
+```javascript
+// WRONG: {} is truthy, treated as forceRefresh=true
+fetchCategories({}, false)  // Always bypasses cache!
+// WRONG: true forces refetch even if data is fresh
+fetchCategories(true)       // Only use when data was just mutated
+```
+
+**How the cache works** (`cacheManager.js`):
+
+- Singleton `CacheManager` with `Map` for data and `Map` for timestamps
+- `get(key, ttl)` returns cached data if `(Date.now() - timestamp) < ttl`, else `null`
+- Default TTL: 5 minutes
+- Mutation operations (`createContract`, `deleteClient`, etc.) call `cacheManager.invalidateResource()` to bust the cache
+- `requestInProgressRef` deduplicates concurrent requests for the same key
+
+**When to use `forceRefresh=true`**:
+
+- After a mutation (create/update/delete) — cache is stale
+- Never for read-only page loads that share data with other pages
+
+---
+
+### 8. **Backend HTTP Caching with Cache-Control**
+
+For endpoints that return stable, rarely-changing configuration data, the backend sends `Cache-Control` headers:
+
+```go
+// Stable config endpoints — 5 min browser cache
+w.Header().Set("Cache-Control", "private, max-age=300, must-revalidate")
+```
+
+**Applied to:**
+
+- `GET /api/settings` — System settings rarely change mid-session
+- `GET /api/user/theme` — User's theme preference is stable
+- `GET /api/system-config/dashboard` — Dashboard config is stable
+
+**Result**: Revisiting `/settings` or `/appearance` pages produces **0 API requests** — the browser serves from disk cache.
+
+**When NOT to use**:
+
+- List endpoints (`/contracts`, `/clients`) — data changes frequently
+- Write endpoints — never cache POST/PUT/DELETE responses
+- Auth endpoints — tokens must always be validated fresh
 
 ---
 
@@ -274,6 +360,7 @@ const loadData = async (silent = false) => {
 Even after the initial Financial Query Bomb optimization (documented above), the **Contracts** and **Financial** pages remained slow in production. Root cause analysis revealed:
 
 **Frontend Pattern**:
+
 - **Contracts page**: Made 3 parallel API calls
   1. `GET /contracts` (returns all contracts, no enrichment)
   2. `GET /clients` (all clients, for mapping)
@@ -290,11 +377,13 @@ Even after the initial Financial Query Bomb optimization (documented above), the
   - Result: 6 requests → **3-6x slower** than needed due to waterfalls and parallel overhead
 
 **Backend Pattern**:
+
 - `GET /contracts` used `GetAllContractsIncludingArchived()` → returns all contracts, no JOINs
 - `GET /financial` used `GetAllFinancials()` → no enrichment with contract/client/category names
 - Frontend had to manually build Maps and cross-reference by ID for every rendered row
 
 **Client-Side Impact**:
+
 - ContractsTable.jsx reconstructed Maps on every render
 - For each table row, performed ID-based lookups: `clientMap[contract.client_id]`
 - No caching of enriched data → expensive recalculations on sort/filter
@@ -305,12 +394,15 @@ Even after the initial Financial Query Bomb optimization (documented above), the
 #### 1. Backend: Enrich API Responses with JOINs
 
 **Before** (`GetAllContractsIncludingArchived`):
+
 ```sql
 SELECT c.* FROM contracts c
 ```
+
 Result: Contract with no client/category names; frontend must make 2 more calls
 
 **After** (same endpoint, optimized):
+
 ```sql
 SELECT
     c.id, c.model, c.item_key, c.start_date, c.end_date,
@@ -326,6 +418,7 @@ LEFT JOIN categories cat ON cat.id = s.category_id
 ```
 
 **Modified Files**:
+
 - `backend/domain/models.go` — Added enriched fields to `Contract` struct:
   - `ClientName string`
   - `ClientNickname string`
@@ -345,6 +438,7 @@ LEFT JOIN categories cat ON cat.id = s.category_id
 #### 2. Frontend: Progressive Loading Pattern
 
 **Before**:
+
 ```javascript
 // Wait for all 3 to finish
 const [contracts, clients, categories] = await Promise.all([
@@ -356,6 +450,7 @@ const [contracts, clients, categories] = await Promise.all([
 ```
 
 **After**:
+
 ```javascript
 // 1. Load enriched data immediately (blocking)
 const contractsData = await fetchContracts(); // NOW returns client_name, category_name inline
@@ -372,6 +467,7 @@ Promise.allSettled([
 ```
 
 **Modified Files**:
+
 - `frontend/src/pages/Contracts.jsx` — Refactored to:
   1. Load enriched contracts first
   2. Use `contract.client_name`, `contract.category_name` directly
@@ -384,6 +480,7 @@ Promise.allSettled([
   3. Load contracts/clients/categories in background for modals/filters
 
 - `frontend/src/components/contracts/ContractsTable.jsx` — Updated to use enriched fields:
+
   ```javascript
   // Old: Look up client name from separate Map
   const clientName = clientMap[contract.client_id]?.name || 'Unknown';
@@ -407,6 +504,7 @@ Promise.allSettled([
 | **Browser Jank on Sort/Filter** | High (recalc maps) | None | **Smooth** |
 
 **Why This Works**:
+
 - **Contracts table now renders from a single enriched API call** — 1 request instead of 3, arrives in ~200-400ms instead of waiting for 3 parallel responses (800ms+ typical).
 - **Auxiliary data (for modals/dropdowns) loads in background** — Non-blocking. If it arrives, great. If it hasn't, table still shows main data with fallback lookups.
 - **Frontend rendering is instant** — No Maps to build, no ID lookups per row. Just render `contract.client_name` as a string.
@@ -614,14 +712,17 @@ try {
 
 ## Scalability Projections
 
-### Current Performance Baseline (as of this update)
+### Current Performance Baseline (as of 2026-02-22)
 
-| Page | Query Count | Load Time | Status |
-|------|------------|-----------|--------|
-| Contracts List | 2–3 | <500ms | ✅ Optimized |
-| Financial Dashboard | 4–5 | 0.72s | ✅ Optimized (from 15-30s) |
-| Clients List | 1–2 | <300ms | ✅ Optimized |
-| Categories + Subcategories | 2 | <400ms | ✅ Optimized |
+| Page | Query Count | Load Time | API Requests | Status |
+|------|------------|-----------|-------------|--------|
+| Contracts List | 2–3 | <500ms | **0** (cache hit) | ✅ DataContext cache |
+| Financial Dashboard | 4–5 | 0.72s | **4** (was 5) | ✅ Categories cache fix |
+| Clients List | 1–2 | <300ms | 2 | ✅ Optimized |
+| Categories + Subcategories | 2 | <400ms | 1 | ✅ Optimized |
+| Settings | 1 | <100ms | **0** (Cache-Control) | ✅ Browser cache |
+| Appearance | 1 | <100ms | **0** (Cache-Control) | ✅ Browser cache |
+| Audit Logs | 1 | <50ms | 1 (2 in dev) | ⚠️ StrictMode dev-only |
 
 ### Projection: 10x Data Growth (250,000 contracts)
 
@@ -649,6 +750,7 @@ try {
 ### Adding a New Large-Dataset Endpoint
 
 1. **Define the schema**: How many rows? What indexes?
+
    ```go
    // Example: expenses table with 500k rows
    type Expense struct {
@@ -661,6 +763,7 @@ try {
    ```
 
 2. **Design the index**:
+
    ```sql
    -- For common queries (by contract + date)
    CREATE INDEX idx_expenses_contract_date 
@@ -669,6 +772,7 @@ try {
    ```
 
 3. **Implement batch retrieval**:
+
    ```go
    func (r *ExpenseStore) GetExpensesByContractIDBatch(
        ctx context.Context,
@@ -677,6 +781,7 @@ try {
    ```
 
 4. **Use pagination for lists**:
+
    ```go
    func (r *ExpenseStore) GetExpensesPaginated(
        limit, offset int,
@@ -684,6 +789,7 @@ try {
    ```
 
 5. **Test query performance**:
+
    ```bash
    EXPLAIN ANALYZE SELECT ... FROM expenses WHERE ...;
    ```
@@ -691,6 +797,33 @@ try {
 ---
 
 ## Monitoring & Observability
+
+### Backend Log Format (Fixed-Width Columnar)
+
+All API requests are logged in a single-line, fixed-width columnar format for easy scanning:
+
+```
+PAGE(14)       | METHOD(6) | API(35)                             | STATUS | DURATION     | user, role
+/dashboard     | GET       | /api/dashboard/counts               | 200    |      6.47ms  | root, root
+/financial     | GET       | /api/financial/detailed-summary     | 200    |     34.671ms | root, root
+/login         | POST      | /api/login                          | 200    |     70.157ms | -, -
+-              | POST      | /api/logout                         | 200    |        540µs | root, root
+```
+
+**Page source** is extracted from the `Referer` header, making it trivial to identify which frontend page triggered each request.
+
+### Authentication Audit Trail
+
+Login and logout events are recorded in the `audit_logs` table:
+
+| Event | Operation | Resource | Status | Details |
+|-------|-----------|----------|--------|---------|
+| Successful login | `login` | `auth` | `success` | method=password |
+| Failed login | `login` | `auth` | `failed` | reason=invalid credentials |
+| Manual logout | `logout` | `auth` | `success` | method=manual |
+| Token refresh failure | `login` | `auth` | `failed` | method=token |
+
+Each entry includes: `admin_id`, `admin_username`, `ip_address`, `user_agent`, `request_method`, `request_path`.
 
 ### Slow Query Detection
 
@@ -714,6 +847,8 @@ LIMIT 10;
 | Average response time | < 1s | Check indexes, add caching |
 | Slow query frequency | < 5% | Analyze query plans |
 | API 429 rate-limit hits | < 1% | Increase burst or cache results |
+| Pages with 0 API requests | ≥3 | DataContext + Cache-Control working |
+| Redundant API calls per page | 0 | Check call signatures vs function defs |
 
 ---
 
@@ -736,10 +871,14 @@ LIMIT 10;
 - ✅ Aggregate in SQL (SUM, COUNT, GROUP BY) not application code
 - ✅ Create covering indexes for frequently-filtered columns
 - ✅ Implement pagination for any list > 100 rows
-- ✅ Monitor slow queries (> 500ms) and investigate
+- ✅ Monitor slow queries (>500ms) and investigate
 - ✅ Test query performance with `EXPLAIN ANALYZE`
 - ✅ Document query assumptions (expected row count, typical filters)
 - ✅ Plan for 10x growth: can current indexes handle it?
+- ✅ Use `Cache-Control` headers for stable config endpoints
+- ✅ Use `forceRefresh=false` for auxiliary data to leverage DataContext TTL cache
+- ✅ Verify call signatures — `fn({}, false)` ≠ `fn(false)` when first param is `forceRefresh`
+- ✅ Log authentication events (login/logout) in audit-logs for compliance
 
 ---
 
@@ -747,10 +886,14 @@ LIMIT 10;
 
 - `backend/BACKEND_ARCHITECTURE.md` — Service and handler layer
 - `backend/database/QUERIES.md` — SQL query reference
-- `PERFORMANCE_SUMMARY.md` — Before/after metrics
+- `PERFORMANCE_JOURNEY.md` — Complete performance optimization timeline
+- `backend/server/middleware_logging.go` — Columnar log format implementation
+- `backend/server/auth_handlers.go` — Login/logout handlers with audit logging
+- `frontend/src/contexts/DataContext.jsx` — DataContext cache with TTL
+- `frontend/src/utils/cacheManager.js` — CacheManager singleton
 
 ---
 
-**Last Updated**: 2025-01-XX  
+**Last Updated**: 2026-02-22  
 **Status**: Complete, ready for extension  
 **Maintainer**: DevSecOps Team
