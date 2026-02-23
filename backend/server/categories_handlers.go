@@ -22,6 +22,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -44,15 +45,32 @@ func (s *Server) handleCategories(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleListCategories(w http.ResponseWriter, r *http.Request) {
 	includeArchived := r.URL.Query().Get("include_archived") == "true"
+	searchQuery := r.URL.Query().Get("search")
+	limitStr := r.URL.Query().Get("limit")
+
+	offsetStr := r.URL.Query().Get("offset")
+
+	limit := 50 // Default limit for API performance
+	if limitStr != "" {
+		parsedLimit, err := strconv.Atoi(limitStr)
+		if err == nil && parsedLimit > 0 {
+			limit = parsedLimit
+		}
+	}
+
+	offset := 0
+	if offsetStr != "" {
+		parsedOffset, err := strconv.Atoi(offsetStr)
+		if err == nil && parsedOffset > 0 {
+			offset = parsedOffset
+		}
+	}
 
 	var categories []domain.Category
 	var err error
 
-	if includeArchived {
-		categories, err = s.categoryStore.GetAllCategoriesIncludingArchived()
-	} else {
-		categories, err = s.categoryStore.GetAllCategories()
-	}
+	// Process fetching
+	categories, err = s.categoryStore.SearchCategories(searchQuery, includeArchived, limit, offset)
 
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, err.Error())
