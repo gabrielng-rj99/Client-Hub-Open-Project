@@ -2273,9 +2273,10 @@ func TestGetAllContractsWithMultipleClients(t *testing.T) {
 	client1Count := 0
 	client2Count := 0
 	for _, contract := range contracts {
-		if contract.ClientID == client1ID {
+		switch contract.ClientID {
+		case client1ID:
 			client1Count++
-		} else if contract.ClientID == client2ID {
+		case client2ID:
 			client2Count++
 		}
 	}

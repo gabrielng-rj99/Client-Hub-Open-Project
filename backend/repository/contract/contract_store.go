@@ -759,7 +759,7 @@ func (s *ContractStore) GetAllContracts() (contracts []domain.Contract, err erro
 	return contracts, nil
 }
 
-// GetAllContractsIncludingArchived fetches all contracts in the system (including archived)
+// GetAllContractsIncludingArchived fetches all contracts in the system (including archived and cancelled)
 func (s *ContractStore) GetAllContractsIncludingArchived() (contracts []domain.Contract, err error) {
 	sqlStatement := `
 		SELECT

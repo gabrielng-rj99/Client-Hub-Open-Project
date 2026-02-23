@@ -241,7 +241,7 @@ func (s *Server) handleFinancialByID(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleGetFinancial retorna um financeiro específico
-func (s *Server) handleGetFinancial(w http.ResponseWriter, r *http.Request, financialID string) {
+func (s *Server) handleGetFinancial(w http.ResponseWriter, _ *http.Request, financialID string) {
 	if err := domain.ValidateUUID(financialID); err != nil {
 		respondError(w, http.StatusNotFound, "Financeiro não encontrado")
 		return
@@ -493,7 +493,7 @@ func (s *Server) handleFinancialInstallments(w http.ResponseWriter, r *http.Requ
 }
 
 // handleListInstallments lista parcelas de um financeiro
-func (s *Server) handleListInstallments(w http.ResponseWriter, r *http.Request, financialID string) {
+func (s *Server) handleListInstallments(w http.ResponseWriter, _ *http.Request, financialID string) {
 	installments, err := s.financialStore.GetInstallmentsByFinancialID(financialID)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, err.Error())
@@ -536,7 +536,7 @@ func (s *Server) handleCreateInstallment(w http.ResponseWriter, r *http.Request,
 }
 
 // handleInstallmentByID gerencia uma parcela específica
-func (s *Server) handleInstallmentByID(w http.ResponseWriter, r *http.Request, financialID, installmentID string) {
+func (s *Server) handleInstallmentByID(w http.ResponseWriter, r *http.Request, _, installmentID string) {
 	// Verificar ações especiais
 	if strings.HasSuffix(r.URL.Path, "/pay") {
 		s.handleMarkInstallmentPaid(w, r, installmentID)
@@ -576,7 +576,7 @@ func (s *Server) handleUpdateInstallment(w http.ResponseWriter, r *http.Request,
 }
 
 // handleDeleteInstallment deleta uma parcela
-func (s *Server) handleDeleteInstallment(w http.ResponseWriter, r *http.Request, installmentID string) {
+func (s *Server) handleDeleteInstallment(w http.ResponseWriter, _ *http.Request, installmentID string) {
 	if err := s.financialStore.DeleteInstallment(installmentID); err != nil {
 		respondError(w, http.StatusBadRequest, err.Error())
 		return
