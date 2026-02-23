@@ -37,6 +37,7 @@ import Settings from "./pages/Settings";
 import Appearance from "./pages/Appearance";
 import Sidebar from "./components/layout/Sidebar";
 import LayoutManager from "./components/layout/LayoutManager";
+import TopProgressBar from "./components/common/TopProgressBar";
 import { ConfigProvider } from "./contexts/ConfigContext";
 import { DataProvider } from "./contexts/DataContext";
 import "./App.css";
@@ -61,6 +62,7 @@ const ProtectedLayout = ({
                 apiUrl={API_URL}
                 onTokenExpired={() => logout("Token inválido")}
             >
+                <TopProgressBar />
                 <LayoutManager />
                 <div className="app-container">
                     <Sidebar
