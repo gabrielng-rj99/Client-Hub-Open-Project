@@ -161,8 +161,8 @@ export default function FinancialForm({
             backgroundColor: state.isSelected
                 ? "var(--primary-color, #3498db)"
                 : state.isFocused
-                  ? "var(--hover-bg, #f8f9fa)"
-                  : "var(--content-bg, white)",
+                    ? "var(--hover-bg, #f8f9fa)"
+                    : "var(--content-bg, white)",
             color: state.isSelected ? "white" : "var(--primary-text-color, #333)",
             cursor: "pointer",
         }),
@@ -198,6 +198,28 @@ export default function FinancialForm({
                         isDisabled={disabled}
                         placeholder="Selecione..."
                     />
+                </div>
+
+                {/* Descrição contextual do tipo de financeiro */}
+                <div className="financial-form-type-hint">
+                    {financialType === "unico" && (
+                        <span>💡 O lançamento aparecerá no painel financeiro na data de vencimento definida abaixo.</span>
+                    )}
+                    {financialType === "recorrente" && recurrenceType === "mensal" && (
+                        <span>💡 Parcelas geradas no dia {dueDay} de cada mês, a partir do início do contrato.</span>
+                    )}
+                    {financialType === "recorrente" && recurrenceType === "trimestral" && (
+                        <span>💡 Parcelas geradas a cada 3 meses no dia {dueDay}, a partir do início do contrato.</span>
+                    )}
+                    {financialType === "recorrente" && recurrenceType === "semestral" && (
+                        <span>💡 Parcelas geradas a cada 6 meses no dia {dueDay}, a partir do início do contrato.</span>
+                    )}
+                    {financialType === "recorrente" && recurrenceType === "anual" && (
+                        <span>💡 Parcela anual gerada no dia {dueDay} do mês de início do contrato.</span>
+                    )}
+                    {financialType === "personalizado" && (
+                        <span>💡 Cada parcela aparecerá no painel financeiro na data específica que você definir em cada item.</span>
+                    )}
                 </div>
 
                 {/* Campos para Recorrente */}
