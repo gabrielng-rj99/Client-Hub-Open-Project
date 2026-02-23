@@ -1,0 +1,23 @@
+.top-progress-bar-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    z-index: 9999;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.top-progress-bar-container.hidden {
+    opacity: 0;
+}
+
+.top-progress-bar {
+    height: 100%;
+    background-color: var(--primary-color, #3498db);
+    transition: width 0.2s ease;
+    box-shadow: 0 0 10px var(--primary-color, #3498db), 0 0 5px var(--primary-color, #3498db);
+    border-top-right-radius: 3px;
+    border-bottom-right-radius: 3px;
+}
