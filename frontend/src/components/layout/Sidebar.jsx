@@ -80,6 +80,7 @@ const Sidebar = ({ sidebarCollapsed, toggleSidebar, user, logout }) => {
             <div className="app-nav-items">
                 <button
                     onClick={() => navigate("/dashboard")}
+                    data-navigate={true}
                     className={`app-nav-button ${currentPath === "dashboard" ? "active" : ""}`}
                     title="Dashboard"
                 >
@@ -91,6 +92,7 @@ const Sidebar = ({ sidebarCollapsed, toggleSidebar, user, logout }) => {
 
                 <button
                     onClick={() => navigate("/contracts")}
+                    data-navigate={true}
                     className={`app-nav-button ${currentPath === "contracts" ? "active" : ""}`}
                     title={labels.contracts || "Contratos"}
                 >
@@ -104,6 +106,7 @@ const Sidebar = ({ sidebarCollapsed, toggleSidebar, user, logout }) => {
 
                 <button
                     onClick={() => navigate("/clients")}
+                    data-navigate={true}
                     className={`app-nav-button ${currentPath === "clients" ? "active" : ""}`}
                     title={labels.clients || "Clientes"}
                 >
@@ -117,6 +120,7 @@ const Sidebar = ({ sidebarCollapsed, toggleSidebar, user, logout }) => {
 
                 <button
                     onClick={() => navigate("/categories")}
+                    data-navigate={true}
                     className={`app-nav-button ${currentPath === "categories" ? "active" : ""}`}
                     title={labels?.categories || "Categorias"}
                 >
@@ -130,6 +134,7 @@ const Sidebar = ({ sidebarCollapsed, toggleSidebar, user, logout }) => {
 
                 <button
                     onClick={() => navigate("/financial")}
+                    data-navigate={true}
                     className={`app-nav-button ${currentPath === "financial" ? "active" : ""}`}
                     title="Financeiro"
                 >
@@ -142,6 +147,7 @@ const Sidebar = ({ sidebarCollapsed, toggleSidebar, user, logout }) => {
                 {(user.role === "admin" || user.role === "root") && (
                     <button
                         onClick={() => navigate("/users")}
+                        data-navigate={true}
                         className={`app-nav-button ${currentPath === "users" ? "active" : ""}`}
                         title={labels?.users || "Usuários"}
                     >
@@ -157,6 +163,7 @@ const Sidebar = ({ sidebarCollapsed, toggleSidebar, user, logout }) => {
                 {user.role === "root" && (
                     <button
                         onClick={() => navigate("/audit-logs")}
+                        data-navigate={true}
                         className={`app-nav-button ${currentPath === "audit-logs" ? "active" : ""}`}
                         title="Logs"
                     >
@@ -169,6 +176,7 @@ const Sidebar = ({ sidebarCollapsed, toggleSidebar, user, logout }) => {
 
                 <button
                     onClick={() => navigate("/appearance")}
+                    data-navigate={true}
                     className={`app-nav-button ${currentPath === "appearance" ? "active" : ""}`}
                     title="Aparência"
                 >
@@ -181,6 +189,7 @@ const Sidebar = ({ sidebarCollapsed, toggleSidebar, user, logout }) => {
                 {(user.role === "admin" || user.role === "root") && (
                     <button
                         onClick={() => navigate("/settings")}
+                        data-navigate={true}
                         className={`app-nav-button ${currentPath === "settings" ? "active" : ""}`}
                         title="Configurações"
                     >
