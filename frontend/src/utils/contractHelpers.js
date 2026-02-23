@@ -54,13 +54,18 @@ export const getInitialFormData = () => ({
 export const formatContractForEdit = (contract) => ({
     model: contract.model || "",
     item_key: contract.item_key || "",
+    // Store as yyyy-mm-dd for native <input type="date"> compatibility
     start_date: contract.start_date
-        ? convertDateToDisplay(contract.start_date)
+        ? contract.start_date.split("T")[0]   // strip time zone portion
         : "",
-    end_date: contract.end_date ? convertDateToDisplay(contract.end_date) : "",
+    end_date: contract.end_date
+        ? contract.end_date.split("T")[0]
+        : "",
     client_id: contract.client_id || "",
     affiliate_id: contract.affiliate_id || "",
-    category_id: contract.line?.category_id || "",
+    // category_id: prefer the embedded field, but ContractsModal will
+    // also derive it from categories × subcategory_id as a fallback.
+    category_id: contract.line?.category_id || contract.category_id || "",
     subcategory_id: contract.subcategory_id || "",
 });
 
@@ -258,15 +263,24 @@ export const getCategoryName = (lineId, categories) => {
     return category?.name || "-";
 };
 
-// Exportar helper para conversão de data para API (usado no submit)
+// Build the API payload from formData.
+// Handles both yyyy-mm-dd (native date input) and dd/mm/yyyy (legacy).
 export const prepareContractDataForAPI = (formData) => {
+    const toAPIDate = (val) => {
+        if (!val) return null;
+        // dd/mm/yyyy → yyyy-mm-ddT00:00:00Z
+        if (/^\d{2}\/\d{2}\/\d{4}$/.test(val)) {
+            return convertDateToAPI(val);
+        }
+        // yyyy-mm-dd → yyyy-mm-ddT00:00:00Z
+        if (/^\d{4}-\d{2}-\d{2}$/.test(val)) {
+            return `${val}T00:00:00Z`;
+        }
+        return null;
+    };
     return {
         ...formData,
-        start_date: formData.start_date
-            ? convertDateToAPI(formData.start_date)
-            : null,
-        end_date: formData.end_date
-            ? convertDateToAPI(formData.end_date)
-            : null,
+        start_date: toAPIDate(formData.start_date),
+        end_date: toAPIDate(formData.end_date),
     };
 };
