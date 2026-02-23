@@ -245,4 +245,71 @@ export const contractsApi = {
 
         return response.json();
     },
+
+
+
+    getContractByID: async (apiUrl, token, contractId, onTokenExpired) => {
+        const response = await fetch(`${apiUrl}/contracts/${contractId}`, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+            },
+        });
+
+        handleResponseErrors(response, onTokenExpired);
+
+        if (!response.ok) {
+            throw new Error("Erro ao carregar contrato");
+        }
+
+        const data = await response.json();
+        return data.data || data;
+    },
+
+    // Lazy search for clients in modals — uses existing ?search= param
+    searchClients: async (apiUrl, token, query, onTokenExpired, offset = 0) => {
+        const params = new URLSearchParams({
+            search: query,
+            limit: "100",
+            offset: offset.toString(),
+            include_archived: "false",
+        });
+        const response = await fetch(`${apiUrl}/clients?${params}`, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+            },
+        });
+
+        handleResponseErrors(response, onTokenExpired);
+
+        if (!response.ok) {
+            throw new Error("Erro ao buscar clientes");
+        }
+
+        const data = await response.json();
+        return data.data || [];
+    },
+
+    searchCategories: async (apiUrl, token, query, onTokenExpired, offset = 0) => {
+        const params = new URLSearchParams({
+            search: query || "",
+            limit: "100",
+            offset: offset.toString(),
+            include_archived: "false",
+        });
+        const response = await fetch(`${apiUrl}/categories?${params}`, {
+            method: "GET",
+            headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+            },
+        });
+
+        handleResponseErrors(response, onTokenExpired);
+        if (!response.ok) return [];
+
+        const data = await response.json();
+        return data.data || [];
+    },
 };
