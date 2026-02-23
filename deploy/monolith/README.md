@@ -5,6 +5,7 @@ Deploy Client Hub on a single machine with all services running on the host (pro
 ## 📋 Overview
 
 **Monolith mode** runs:
+
 - ✅ Backend API (compiled Go binary)
 - ✅ Frontend (static build served by Nginx)
 - ✅ PostgreSQL (native installation)
@@ -20,10 +21,11 @@ This mode simulates a production environment without Docker.
 ### 1. Install Dependencies (First Time Only)
 
 ```bash
-./install-monolith.sh
+make install
 ```
 
 This installs:
+
 - Go 1.25.6
 - Node.js 24.11.1
 - PostgreSQL 16
@@ -52,14 +54,14 @@ DB_USER=chopuser
 ### 3. Start
 
 ```bash
-./start-monolith.sh
+make start
 ```
 
 ### 4. Access
 
-- **HTTPS**: https://localhost
-- **HTTP**: http://localhost
-- **API**: http://localhost:3000
+- **HTTPS**: <https://localhost>
+- **HTTP**: <http://localhost>
+- **API**: <http://localhost:3000>
 
 ---
 
@@ -67,16 +69,19 @@ DB_USER=chopuser
 
 ```bash
 # Install dependencies (first time)
-./install-monolith.sh
+make install
 
 # Start all services
-./start-monolith.sh
+make start
 
 # Stop all services
-./stop-monolith.sh
+make stop
+
+# Restart all services
+make restart
 
 # Destroy everything (⚠️ deletes database!)
-./destroy-monolith.sh
+make uninstall
 ```
 
 ---
@@ -88,6 +93,7 @@ DB_USER=chopuser
 Leave `DB_PASSWORD` and `JWT_SECRET` empty in `monolith.ini` to auto-generate secure 64-character passwords.
 
 When generated, they will be:
+
 1. ✅ Displayed in the terminal (save them!)
 2. ✅ Automatically saved back to `monolith.ini`
 3. ✅ Used for all subsequent runs
@@ -116,7 +122,7 @@ JWT_SECRET=your_64_char_jwt_secret_here
 
 On first run with an empty database, the system enters setup mode:
 
-1. Access the app (https://localhost)
+1. Access the app (<https://localhost>)
 2. You'll see the initialization screen
 3. Follow the prompts to create the first admin user
 
@@ -129,11 +135,14 @@ curl http://localhost:3000/api/initialize/status
 ### Backup
 
 ```bash
-# Backup
-pg_dump -h localhost -U chopuser chopdb > backup.sql
+# Backup configuration and optionally database
+make backup
 
-# Restore
-psql -h localhost -U chopuser chopdb < backup.sql
+# Backup database (snapshot with retention)
+make backup-db
+
+# Restore from backup
+make restore
 ```
 
 ### Reset Database
@@ -141,12 +150,8 @@ psql -h localhost -U chopuser chopdb < backup.sql
 To start fresh:
 
 ```bash
-# Option 1: Full destroy (removes everything)
-./destroy-monolith.sh
-
-# Option 2: Manual reset
-sudo -u postgres psql -c "DROP DATABASE chopdb;"
-sudo -u postgres psql -c "CREATE DATABASE chopdb OWNER chopuser;"
+# Full destroy (removes everything)
+make uninstall
 ```
 
 ---
@@ -168,17 +173,20 @@ Configuration is generated at: `app/monolith/nginx-runtime.conf`
 To use a custom domain (e.g., `chop.home.arpa`):
 
 1. Edit `monolith.ini`:
+
    ```ini
    SSL_DOMAIN=chop.home.arpa
    CORS_ALLOWED_ORIGINS=https://chop.home.arpa
    ```
 
 2. Add to `/etc/hosts`:
+
    ```
    127.0.0.1 chop.home.arpa
    ```
 
 3. Import certificate in browser or use mkcert:
+
    ```bash
    mkcert -install
    mkcert chop.home.arpa
@@ -247,7 +255,7 @@ sudo systemctl stop apache2  # or other web server
 # Nginx needs sudo for ports 80/443
 # If error, stop and restart:
 sudo pkill -9 nginx
-./start-monolith.sh
+make start
 ```
 
 ### Backend Not Starting
@@ -293,7 +301,7 @@ npm run build
 ```bash
 # Regenerate certificates
 rm -rf ../../app/monolith/certs
-./start-monolith.sh
+make start
 
 # Or manually
 cd ..
@@ -306,10 +314,11 @@ cd ..
 
 ```
 monolith/
-├── start-monolith.sh        # Start all services
-├── stop-monolith.sh         # Stop all services
-├── install-monolith.sh      # Install dependencies
-├── destroy-monolith.sh      # Destroy everything
+├── Makefile                 # Single entry point for all commands
+├── start-monolith.sh        # Start script (used by Makefile)
+├── stop-monolith.sh         # Stop script (used by Makefile)
+├── install-monolith.sh      # Install script (used by Makefile)
+├── destroy-monolith.sh      # Destroy script (used by Makefile)
 ├── monolith.ini             # Configuration file
 ├── versions.ini             # Dependency versions
 ├── nginx-runtime.conf       # Generated Nginx config (copied to app/monolith/nginx-runtime.conf)
@@ -332,8 +341,8 @@ Generated during runtime:
 # Edit versions.ini
 nano versions.ini
 
-# Reinstall
-./install-monolith.sh
+# Reinstall / Upgrade
+make upgrade
 ```
 
 ### Update Application
@@ -345,8 +354,7 @@ git pull
 
 # Restart services
 cd deploy/monolith
-./stop-monolith.sh
-./start-monolith.sh
+make restart
 ```
 
 ---
@@ -393,7 +401,7 @@ crontab -e
 ## 🆘 Support
 
 - **Documentation**: `../../docs/`
-- **API Docs**: http://localhost:3000/docs (when running)
+- **API Docs**: <http://localhost:3000/docs> (when running)
 - **Logs**: Check `../../app/monolith/logs/backend/backend.log` first
 - **Issues**: Open an issue on GitHub
 

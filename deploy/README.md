@@ -22,7 +22,7 @@ Backend + Vite dev server with hot reload. Perfect for development.
 
 ## 📁 Structure
 
-```
+```text
 deploy/
 ├── docker/                   # Deploy via Docker Compose
 │   ├── docker-compose.yml
@@ -62,14 +62,15 @@ deploy/
 cd deploy/docker
 
 # 1. Configure variables
-cp .env.example .env
-nano .env  # Edit DB_PASSWORD and JWT_SECRET
+make env-check
 
-# 2. Start containers
-docker-compose up -d
+# 2. Build and start containers
+make build
+make up
 
 # 3. Access
-# https://localhost (or your configured port)
+# Frontend (Vite): http://localhost:5173
+# Backend API: http://localhost:3000
 ```
 
 ### Monolith (Local Production)
@@ -78,17 +79,14 @@ docker-compose up -d
 cd deploy/monolith
 
 # 1. Install dependencies (first time only)
-./install-monolith.sh
+make install
 
-# 2. Configure
-nano monolith.ini  # Leave DB_PASSWORD and JWT_SECRET empty to auto-generate
+# 2. Start (automatically configs via monolith.ini)
+make start
 
-# 3. Start
-./start-monolith.sh
-
-# 4. Access
-# https://localhost
-# http://localhost:80
+# 3. Access
+# Frontend: http://localhost:80
+# Backend: http://localhost:3000
 ```
 
 ### Development (Hot Reload)
@@ -96,8 +94,8 @@ nano monolith.ini  # Leave DB_PASSWORD and JWT_SECRET empty to auto-generate
 ```bash
 cd deploy/dev
 
-# 1. Configure
-nano dev.ini  # Leave DB_PASSWORD and JWT_SECRET empty to auto-generate
+# 1. Configure (optional)
+# nano dev.ini (if you need to override ports)
 
 # 2. Start
 make start
@@ -110,16 +108,16 @@ make start
 
 ## 🔍 Modes Comparison
 
-| Feature               | Docker          | Monolith         | Development      |
-|-----------------------|-----------------|------------------|------------------|
-| **Isolation**         | ✅ Containers   | ❌ Host          | ❌ Host          |
-| **Ease of Use**       | ⭐⭐⭐⭐⭐       | ⭐⭐⭐⭐          | ⭐⭐⭐           |
-| **Production**        | ✅ Yes          | ✅ Yes           | ❌ No            |
-| **Hot Reload**        | ❌ No           | ❌ No            | ✅ Yes           |
-| **Performance**       | High            | High             | Medium           |
-| **Frontend**          | Nginx (build)   | Nginx (build)    | Vite dev server  |
-| **SSL**               | ✅ Auto         | ✅ Auto          | ❌ Optional      |
-| **Portability**       | ✅ Max          | ⚠️ Requires deps | ⚠️ Requires deps |
+| Feature | Docker | Monolith | Development |
+|---|---|---|---|
+| **Isolation** | ✅ Containers | ❌ Host | ❌ Host |
+| **Ease of Use** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ |
+| **Production** | ✅ Yes | ✅ Yes | ❌ No |
+| **Hot Reload** | ❌ No | ❌ No | ✅ Yes |
+| **Performance** | High | High | Medium |
+| **Frontend** | Nginx (build) | Nginx (build) | Vite dev server |
+| **SSL** | ✅ Auto | ✅ Auto | ❌ Optional |
+| **Portability** | ✅ Max | ⚠️ Requires deps | ⚠️ Requires deps |
 
 ---
 
@@ -128,94 +126,124 @@ make start
 This section reflects the actual build outputs, runtime files, and storage paths observed in the repo scripts/configs. If you automate or backup, use these paths.
 
 ### ✅ Development (`deploy/dev`)
-**Backend binary**
+
+#### Backend binary
+
 - `app/dev/bin/chop-backend-dev.bin` (built by `deploy/dev/Makefile`)
 
-**Frontend**
+#### Frontend
+
 - Vite dev server (no static build output by default)
 
-**Logs**
+#### Logs
+
 - `app/dev/logs/backend.log`
 - `app/dev/logs/frontend.log`
 
-**PIDs**
+#### PIDs
+
 - `app/dev/pids/backend.pid`
 - `app/dev/pids/frontend.pid`
 
-**Database**
+#### Database
+
 - Uses native PostgreSQL on host (`DB_HOST`/`DB_PORT` from `deploy/dev/dev.ini`)
 - `deploy/dev/dev.ini` declares `POSTGRES_VOLUME_PATH=./app/dev/data` (directory used if you wire a local volume)
 
 ### ✅ Monolith (`deploy/monolith`)
-**Backend binary**
+
+#### Backend binary
+
 - `app/monolith/bin/chop-backend.bin` (built by `deploy/monolith/start-monolith.sh`)
 
-**Frontend build**
+#### Frontend build
+
 - `app/monolith/frontend/` (Vite build output)
 
-**Nginx runtime config**
+#### Nginx runtime config
+
 - `app/monolith/nginx-runtime.conf`
 
-**SSL certificates**
+#### SSL certificates
+
 - `app/monolith/certs/`
 
-**Logs**
+#### Logs
+
 - Backend: `app/monolith/logs/backend/backend.log`
 - Nginx: `app/monolith/logs/nginx_access.log`, `app/monolith/logs/nginx_error.log`
 
-**PIDs**
+#### PIDs
+
 - `app/monolith/pids/chop-backend.bin.pid`
 
-**Backups**
+#### Backups
+
 - Config backup: `app/monolith/backups/monolith-<timestamp>.tar.gz`
 - DB snapshots: `app/monolith/backups/db/chop_<timestamp>.sql(.gz)` (via `deploy/backup/backup-db.sh`)
 
-**Database**
+#### Database
+
 - Native PostgreSQL on host (`DB_HOST`/`DB_PORT` from `deploy/monolith/monolith.ini`)
 - `deploy/monolith/monolith.ini` declares `POSTGRES_VOLUME_PATH=./app/monolith/data` (used if you wire a local volume)
 
 ### ✅ Docker Compose (`deploy/docker`)
-**Backend image build output**
+
+#### Backend image build output
+
 - Binary inside container: `/app/main` (from `deploy/docker/Dockerfile.backend`)
 
-**Frontend build output**
+#### Frontend build output
+
 - Static files inside container: `/usr/share/nginx/html` (from `deploy/docker/Dockerfile.frontend`)
 
-**Database data**
+#### Database data
+
 - Host path: `${POSTGRES_VOLUME_PATH:-./app/docker/data/postgres}`
 - Container path: `/var/lib/postgresql/data`
 
-**Backend logs**
+#### Backend logs
+
 - Host path: `${BACKEND_LOGS_PATH:-./app/docker/logs/backend}`
 - Container path: `/app/logs`
 
 **Backups (service `backup`)**
+
 - Host path: `${BACKUP_DIR_PATH:-./app/docker/backups}`
 - Container path: `/backups`
 - Script: `deploy/backup/backup-db.sh` (mounted into container)
 
-**Schema init**
+#### Schema init
+
 - Mounted read-only: `backend/database/schema` → `/docker-entrypoint-initdb.d`
 
 ### ✅ All‑in‑One Docker Image (`deploy/docker/Dockerfile.all-in-one`)
-**Backend binary**
+
+#### Backend binary
+
 - `/app/main`
 
-**Frontend build**
+#### Frontend build
+
 - `/usr/share/nginx/html`
 
-**Database data (inside container)**
+#### Database data (inside container)
+
 - `PGDATA=/var/lib/postgresql/data` (default)
 
-**Logs**
+#### Logs
+
 - `/app/logs` (backend)
 - Nginx logs inside container unless redirected
 
 ### ✅ Test Stack (`tests/docker-compose.test.yml`)
-**Postgres volume**
+
+#### Postgres volume
+
 - Named volume: `chop_test_postgres_data` → `/var/lib/postgresql/data`
 
-**Backend logs (host)**
+#### Backend logs (host)
+
 - `app/tests/logs/backend` → `/app/logs` (mounted)
 
 ---
@@ -227,20 +255,20 @@ This section reflects the actual build outputs, runtime files, and storage paths
 ```bash
 cd deploy/docker
 
-# Start (local build)
-docker-compose up -d
+# Start (builds automatically if needed)
+make up
 
 # View logs
-docker-compose logs -f
+make logs
 
 # Restart
-docker-compose restart
+make restart
 
 # Stop
-docker-compose down
+make down
 
-# Clean all (removes volumes/data)
-docker-compose down -v
+# Clean all (removes containers and optionally volumes)
+make clean
 ```
 
 ### Registry-based Deployment (CI/CD)
@@ -268,6 +296,7 @@ You can also run the automated flow:
 ```
 
 This script will:
+
 - pull new images,
 - run backups (optional),
 - run migrations,
@@ -276,6 +305,7 @@ This script will:
 - rollback to previous images if health check fails (when enabled).
 
 Rollback note:
+
 - Rollback only works if the previous images are still present on the host.
 - If you use digest-based tags (image@sha256:...), the script creates a temporary :rollback tag to restore.
 
@@ -334,10 +364,10 @@ openssl rand -base64 48 | tr -d "=+/" | cut -c1-64
 
 ```bash
 cd deploy/monolith
-./install-monolith.sh
+make install
 ```
 
-This script automatically installs all dependencies (Go, Node, PostgreSQL, Nginx).
+This target automatically checks prerequisites and guides the monolith installation (Go, Node, PostgreSQL, Nginx).
 
 ### Configuration
 
@@ -362,13 +392,13 @@ FRONTEND_HTTPS_PORT=443
 
 ```bash
 # Start
-./start-monolith.sh
+make start
 
 # Stop
-./stop-monolith.sh
+make stop
 
 # Destroy all (removes data, etc)
-./destroy-monolith.sh
+make uninstall
 ```
 
 ### Cron Auto-Update (Monolith)
@@ -415,11 +445,11 @@ LOG_FILE=/path/to/repo/app/monolith/logs/auto-update-cron.log
 
 ## 🔧 Development
 
-### Requirements
+### Dev Requirements
 
 Same as Monolith (Go, Node, PostgreSQL).
 
-### Configuration
+### Dev Configuration
 
 Edit `dev.ini`:
 
@@ -437,7 +467,7 @@ API_PORT=3000
 VITE_PORT=5173
 ```
 
-### Usage
+### Dev Usage
 
 ```bash
 cd deploy/dev
@@ -449,7 +479,7 @@ make start
 make stop
 ```
 
-### What happens at start
+### Dev Flow at start
 
 1. ✅ Loads `dev.ini`
 2. ✅ Generates passwords if empty (saves to .ini)
@@ -466,7 +496,7 @@ make stop
 - 🗄️ **Separate DB**: Does not affect production data
 - 🔄 **Fast**: No Docker image rebuilds
 
-### Logs
+### Dev Logs
 
 - Backend: `app/dev/logs/backend.log`
 - Vite: `app/dev/logs/frontend.log`
