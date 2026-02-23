@@ -11,6 +11,7 @@ This API uses Role-Based Access Control (RBAC) with granular permissions. Each e
 **Permission Format:** `resource:action` (e.g., `clients:read`, `users:create`)
 
 **Built-in Roles:**
+
 - **root**: Full access to all resources
 - **admin**: Administrative access with some restrictions
 - **user**: Standard user access for daily operations
@@ -26,6 +27,7 @@ This API uses Role-Based Access Control (RBAC) with granular permissions. Each e
 | :--- | :--- | :--- | :--- | :--- |
 | `POST` | `/api/login` | Public | `username`, `password` | `token`, `refresh_token`, `user_id`, `username`, `role`, `display_name`, `permissions[]` |
 | `POST` | `/api/refresh-token` | Public | `refresh_token` | `token` |
+| `POST` | `/api/logout` | Authenticated | N/A | `message` |
 
 ---
 
@@ -43,6 +45,7 @@ This API uses Role-Based Access Control (RBAC) with granular permissions. Each e
 | `PUT` | `/api/users/{username}/unlock` | Authenticated with `users:block` permission | N/A | `message` |
 
 **Security Rules:**
+
 - Role-specific permissions apply (e.g., `users:create_admin` required to create admin users)
 - `users:manage_roles` required to change roles
 - Users can update their own data without special permissions
@@ -57,6 +60,7 @@ This API uses Role-Based Access Control (RBAC) with granular permissions. Each e
 | Method | Endpoint | Authentication | Required Parameters | Response Fields |
 | :--- | :--- | :--- | :--- | :--- |
 | `GET` | `/api/clients` | Authenticated with `clients:read` permission | Optional Query: `include_stats=true` | List of Clients (`id`, `name`, `registration_id`, `nickname`, `birth_date`, `email`, `phone`, `address`, `notes`, `status`, `tags`, `contact_preference`, `last_contact_date`, `next_action_date`, `created_at`, `documents`, `archived_at`) + optional stats |
+| `GET` | `/api/clients/counts` | Authenticated | N/A | `total`, `active`, `inactive`, `archived` |
 | `POST` | `/api/clients` | Authenticated with `clients:create` permission | `name` (Required), `registration_id`*, `nickname`*, `birth_date`*, `email`*, `phone`*, `address`*, `notes`*, `tags`*, `contact_preference`*, `documents`* (*=Optional) | `id`, `message` |
 | `GET` | `/api/clients/{id}` | Authenticated with `clients:read` permission | N/A | Complete Client Object |
 | `PUT` | `/api/clients/{id}` | Authenticated with `clients:update` permission | `name`, `registration_id`, `nickname`, `email`, `phone`, `address`, `notes`, `tags`, `contact_preference`, `documents` | `message` |
@@ -95,6 +99,7 @@ This API uses Role-Based Access Control (RBAC) with granular permissions. Each e
 | `GET` | `/api/contracts/{id}/financial` | Authenticated with `financial:read` permission | N/A | Contract Financial Object (or `null` if none) |
 
 **Contract Status Logic:**
+
 - `start_date = null`: Contract always started (infinite lower bound)
 - `end_date = null`: Contract never expires (infinite upper bound)
 - Calculated Status: `Ativo`, `Expirando em Breve` (≤30 days to end), `Expirado`
@@ -114,15 +119,18 @@ This API uses Role-Based Access Control (RBAC) with granular permissions. Each e
 | `DELETE` | `/api/financial/{id}` | Authenticated with `financial:delete` permission | N/A | `message` |
 
 **Financial Types:**
+
 - `unico`: One-time financial (uses `client_value` and `received_value` directly)
 - `recorrente`: Recurring financial (requires `recurrence_type`: `mensal`, `trimestral`, `semestral`, `anual`)
 - `personalizado`: Custom installments (uses `installments[]` array)
 
 **Values:**
+
 - `client_value`: Amount the client pays
 - `received_value`: Amount you receive (commission, etc.)
 
-**Example: Create a custom financial with installments**
+### Example: Create a custom financial with installments
+
 ```bash
 curl -X POST http://localhost:3000/api/financial \
   -H "Authorization: Bearer <token>" \
@@ -135,6 +143,7 @@ curl -X POST http://localhost:3000/api/financial \
 ```
 
 Response:
+
 ```json
 {
   "message": "Financial created successfully",
@@ -163,7 +172,8 @@ Response:
 
 **Installment Labels:** `installment_number` 0 = "Entrada", 1 = "1ª Parcela", etc.
 
-**Example: Create an installment**
+### Example: Create an installment
+
 ```bash
 curl -X POST http://localhost:3000/api/financial/660e8400-e29b-41d4-a716-446655440001/installments \
   -H "Authorization: Bearer <token>" \
@@ -178,6 +188,7 @@ curl -X POST http://localhost:3000/api/financial/660e8400-e29b-41d4-a716-4466554
 ```
 
 Response:
+
 ```json
 {
   "message": "Installment created successfully",
@@ -187,7 +198,8 @@ Response:
 }
 ```
 
-**Example: Mark installment as paid**
+### Example: Mark installment as paid
+
 ```bash
 curl -X PUT http://localhost:3000/api/financial/660e8400-e29b-41d4-a716-446655440001/installments/770e8400-e29b-41d4-a716-446655440002/pay \
   -H "Authorization: Bearer <token>" \
@@ -195,6 +207,7 @@ curl -X PUT http://localhost:3000/api/financial/660e8400-e29b-41d4-a716-44665544
 ```
 
 Response:
+
 ```json
 {
   "message": "Installment marked as paid"
@@ -214,13 +227,15 @@ Response:
 | `GET` | `/api/financial/upcoming` | Authenticated with `financial:read` permission | Optional Query: `days` (default: 30) | List of Upcoming Financial (`installment_id`, `contract_id`, `client_id`, `client_name`, `contract_model`, `installment_label`, `client_value`, `received_value`, `due_date`, `status`) |
 | `GET` | `/api/financial/overdue` | Authenticated with `financial:read` permission | N/A | List of Overdue Financial (same fields as upcoming) |
 
-**Example: Get financial summary**
+### Example: Get financial summary
+
 ```bash
 curl -X GET "http://localhost:3000/api/financial/summary?year=2025&month=2" \
   -H "Authorization: Bearer <token>"
 ```
 
 Response:
+
 ```json
 {
   "message": "Financial summary retrieved",
@@ -236,6 +251,7 @@ Response:
 ```
 
 **Detailed Summary Response Fields:**
+
 - `total_to_receive`: Total amount to receive across all contracts
 - `total_client_pays`: Total amount clients pay
 - `total_received`: Total amount already received
@@ -250,6 +266,7 @@ Response:
 - `current_date`: Current date
 
 **Period Summary Fields:**
+
 - `period`: Period identifier (e.g., "2025-01")
 - `period_label`: Human-readable label (e.g., "Janeiro 2025")
 - `total_to_receive`: Total to receive in the period
@@ -350,6 +367,7 @@ Response:
 | `PUT` | `/api/settings` | Authenticated with `settings:update` permission | `settings` (key-value map) | `message` |
 
 **Setting Validation:**
+
 - Max 2000 chars per value (1MB for branding images with `branding.` prefix)
 - XSS patterns blocked (`<script>`, `javascript:`, etc.)
 - Color values must be valid hex (`#RGB` or `#RRGGBB`)
@@ -395,6 +413,16 @@ Response:
 | :--- | :--- | :--- | :--- | :--- |
 | `GET` | `/api/system-config/dashboard` | Authenticated with `dashboard:read` permission | N/A | `show_birthdays`, `birthdays_days_ahead`, `show_recent_activity`, `recent_activity_count`, `show_statistics`, `show_expiring_contracts`, `expiring_days_ahead`, `show_quick_actions` |
 | `PUT` | `/api/system-config/dashboard` | Authenticated with `dashboard:configure` permission | `show_birthdays`, `birthdays_days_ahead` (1-90), `show_recent_activity`, `recent_activity_count` (5-50), `show_statistics`, `show_expiring_contracts`, `expiring_days_ahead` (7-180), `show_quick_actions` | `success`, `message` |
+
+---
+
+## Dashboard Data
+
+*Aggregated counts for the main dashboard display.*
+
+| Method | Endpoint | Authentication | Required Parameters | Response Fields |
+| :--- | :--- | :--- | :--- | :--- |
+| `GET` | `/api/dashboard/counts` | Authenticated | Optional Query: `expiring_days` (default 30) | `clients{total, active, inactive, archived}`, `contracts{total, active, expiring, expired, not_started, archived}`, `categories{total, active, archived, subcategories}` |
 
 ---
 
@@ -470,6 +498,7 @@ Response:
 ## Common Response Formats
 
 ### Success Response
+
 ```json
 {
   "message": "Operation successful",
@@ -478,6 +507,7 @@ Response:
 ```
 
 ### Error Response
+
 ```json
 {
   "error": "Error message description"
@@ -505,7 +535,7 @@ Response:
 
 For authenticated endpoints, include the JWT token:
 
-```
+```http
 Authorization: Bearer <jwt_token>
 ```
 
@@ -517,6 +547,7 @@ Authorization: Bearer <jwt_token>
 - Burst: 20 requests
 
 Response headers:
+
 - `X-RateLimit-Limit`
 - `X-RateLimit-Remaining`
 - `X-RateLimit-Reset`

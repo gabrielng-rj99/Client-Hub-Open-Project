@@ -76,11 +76,12 @@ Testes de segurança para validação de JWT tokens e tentativas de manipulaçã
 ### 🏗️ Arquitetura de Autorização (ATUALIZADO)
 
 > **IMPORTANTE**: O campo `role` foi **REMOVIDO** das claims do JWT.
-> 
+>
 > Todas as verificações de autorização são agora realizadas via consultas ao banco de dados.
 > Isso garante que mudanças de role tenham efeito imediato sem necessidade de re-emissão de tokens.
 >
 > **Claims presentes no JWT:**
+>
 > - `user_id` - ID único do usuário
 > - `username` - Nome de usuário
 > - `exp` - Data de expiração
@@ -88,6 +89,7 @@ Testes de segurança para validação de JWT tokens e tentativas de manipulaçã
 > - `sub` - Subject (mesmo que user_id)
 >
 > **Verificações de autorização:**
+>
 > - `roleStore.IsUserRoot(userID)` - Verifica se usuário é root
 > - `roleStore.IsUserAdmin(userID)` - Verifica se usuário é admin
 > - `roleStore.IsUserAdminOrRoot(userID)` - Verifica se é admin ou root
@@ -265,6 +267,7 @@ Testes de segurança para validação de JWT tokens e tentativas de manipulaçã
 ### Resultados Executados (75/77 testes passaram, 2 skipped)
 
 **Total de Testes:** 77
+
 - ✅ **Passaram:** 75
 - ⚠️ **Skipped:** 2 (dependem de setup específico)
 - ❌ **Falharam:** 0
@@ -272,12 +275,14 @@ Testes de segurança para validação de JWT tokens e tentativas de manipulaçã
 ### 🔴 Vulnerabilidade Descoberta e Corrigida
 
 **Problema:** Access token aceito como refresh token
+
 - **Endpoint afetado:** `POST /api/refresh-token`
 - **Causa:** Ambos tokens usavam a mesma estrutura, o parser não distinguia entre eles
 - **Impacto:** Um atacante poderia usar um access token vazado para gerar novos tokens indefinidamente
 - **Correção:** Adicionado campo `token_type: "refresh"` nos refresh tokens com validação explícita
 
 **Arquivo corrigido:** `backend/server/jwt_utils.go`
+
 ```go
 type RefreshTokenClaims struct {
     UserID    string `json:"user_id"`
@@ -387,6 +392,7 @@ Testes de tentativas de elevação de privilégio via adulteração de request b
 ### Resultados Executados (12/14 testes passaram, 2 skipped)
 
 #### ✅ JWT Token Tampering - TODOS PASSARAM
+
 - **Token Payload Modification (role)**: Backend rejeita token com role alterado (401)
 - **Token Payload Modification (user_id)**: Backend rejeita token com user_id alterado (401)
 - **Token Payload Modification (username)**: Backend rejeita token com username alterado (401)
@@ -407,18 +413,21 @@ Testes de tentativas de elevação de privilégio via adulteração de request b
 3. **test_user_cannot_change_other_user_role**: ⚠️ SKIPPED (teste setup)
    - Usuário comum não consegue alterar role de outro usuário (403)
 
-#### 🔴 Resource Ownership Bypass - VULNERABILIDADE DESCOBERTA E CORRIGIDA!
+#### 🔴 Resource Ownership Bypass - VULNERABILIDADE DESCOBERTA E CORRIGIDA
 
 **VULNERABILIDADE ENCONTRADA:**
+
 - **test_user_cannot_modify_affiliate_client_id**: 🔴 FALHOU (vulnerabilidade detectada)
   - Um affiliate podia ser **MOVIDO para outro cliente** alterando `client_id` no body do PUT request!
   - Exemplo: `PUT /api/affiliates/{id}` com `{"client_id": "outro_cliente_id"}` movia o affiliate
 
 **CORREÇÃO APLICADA:**
+
 - Arquivo: `backend/server/affiliates_handlers.go`
 - Função: `handleUpdateAffiliate()`
 - Solução: Preservar o `client_id` original antes de fazer update
 - Código adicionado:
+
   ```go
   // SECURITY: Preserve the original client_id - prevent client_id spoofing via request body
   if oldAffiliate != nil {
@@ -427,6 +436,7 @@ Testes de tentativas de elevação de privilégio via adulteração de request b
   ```
 
 **Resultado Após Correção**: ✅ PASSOU
+
 - Affiliate não pode mais ser movido para outro cliente via request body
 - Backend ignora o `client_id` enviado e preserva o original
 
@@ -479,7 +489,6 @@ Testes de tentativas de elevação de privilégio via adulteração de request b
 
 ---
 
-
 ## 📋 Authentication APIs
 
 ### POST /api/login
@@ -522,6 +531,14 @@ Testes de tentativas de elevação de privilégio via adulteração de request b
  | **JWT Security** | Refresh como access | ✅ | test_jwt_security.py |
  | **Overflow** | Token 10K+ chars | ✅ | test_users_api_security.py |
  | **SQL Injection** | Token com SQL | ✅ | test_users_api_security.py |
+
+### POST /api/logout
+
+ | Categoria | Teste | Status | Arquivo |
+ | ----------- | ------- | -------- | --------- |
+ | **Auth** | Sem token | ⬜ | pending |
+ | **Auth** | Token inválido | ⬜ | pending |
+ | **Auth** | Logout bem sucedido | ⬜ | pending |
 
 ---
 
@@ -613,6 +630,12 @@ Testes de tentativas de elevação de privilégio via adulteração de request b
  | **Query Params** | include_stats SQL | ✅ | test_clients_api_security.py |
  | **Query Params** | XSS em params | ✅ | test_xss_security.py |
  | **SQL Injection** | Search params | ✅ | test_sql_injection.py |
+
+### GET /api/clients/counts
+
+ | Categoria | Teste | Status | Arquivo |
+ | ----------- | ------- | -------- | --------- |
+ | **Auth** | Sem token | ⬜ | pending |
 
 ### POST /api/clients
 
@@ -1256,6 +1279,12 @@ Testes de tentativas de elevação de privilégio via adulteração de request b
 ---
 
 ## 📋 Dashboard APIs
+
+### GET /api/dashboard/counts
+
+ | Categoria | Teste | Status | Arquivo |
+ | ----------- | ------- | -------- | --------- |
+ | **Auth** | Sem token | ⬜ | pending |
 
 ### GET /api/system-config/dashboard
 

@@ -1,6 +1,7 @@
 # 📋 Testes Pendentes de Correção
 
 ## Status Geral
+
 - **Total de Pacotes**: 9
 - **Pacotes com Sucesso**: 8 ✅
 - **Pacotes com Falhas**: 1 ⚠️
@@ -29,15 +30,17 @@
 ### `backend/repository/contract`
 
 #### **1. TestUpdateContract / erro_-_nome_vazio**
+
 - **Arquivo**: `contract_test.go:725`
 - **Problema**: `Expected error but got none`
 - **Descrição**: Teste espera erro ao atualizar contrato com Model (nome) vazio, mas nenhum erro é retornado
 - **Motivo Raiz**: A função `UpdateContract` não valida se `Model` está vazio quando é fornecido um ID válido
-- **Solução Proposta**: 
+- **Solução Proposta**:
   - Adicionar validação: se `Model` é fornecido mas vazio, deve retornar erro
   - Ou aceitar `Model` vazio como válido (não fazer update do campo) e ajustar teste
 
 **Código Afetado**:
+
 ```go
 // backend/repository/contract/contract_store.go:329
 func (s *ContractStore) UpdateContract(contract domain.Contract) error {
@@ -53,6 +56,7 @@ func (s *ContractStore) UpdateContract(contract domain.Contract) error {
 ---
 
 #### **2. TestUpdateContractWithInvalidData / invalid_-_update_with_empty_product_key**
+
 - **Arquivo**: `contract_test.go:1821`
 - **Problema**: `Expected error for Update with empty product key should fail, but got none`
 - **Descrição**: Teste espera erro ao atualizar contrato com `ItemKey` (product key) vazio, mas nenhum erro é retornado
@@ -62,6 +66,7 @@ func (s *ContractStore) UpdateContract(contract domain.Contract) error {
   - Ou aceitar `ItemKey` vazio e ajustar teste
 
 **Código Afetado**:
+
 ```go
 // backend/repository/contract/contract_store.go:329
 func (s *ContractStore) UpdateContract(contract domain.Contract) error {
@@ -94,15 +99,16 @@ func (s *ContractStore) UpdateContract(contract domain.Contract) error {
 1. Decidir: Model vazio deve ser erro ou permitido?
    - **Opção A (Recomendada)**: Se o campo Model existe mas está vazio, retornar erro
    - **Opção B**: Model é totalmente opcional, ajustar teste
-   
+
 2. Se Opção A, adicionar em `UpdateContract`:
+
 ```go
 if contract.ID != "" && contract.Model == "" {
     return errors.New("contract model cannot be empty when updating")
 }
 ```
 
-3. Se Opção B, remover ou ajustar expectativa do teste
+1. Se Opção B, remover ou ajustar expectativa do teste
 
 ---
 
@@ -113,13 +119,14 @@ if contract.ID != "" && contract.Model == "" {
    - **Opção B**: ItemKey é totalmente opcional, ajustar teste
 
 2. Se Opção A, adicionar em `UpdateContract`:
+
 ```go
 if contract.ID != "" && contract.ItemKey == "" {
     return errors.New("contract item key cannot be empty when updating")
 }
 ```
 
-3. Se Opção B, remover ou ajustar expectativa do teste
+1. Se Opção B, remover ou ajustar expectativa do teste
 
 ---
 

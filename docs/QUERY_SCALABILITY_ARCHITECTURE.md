@@ -176,7 +176,7 @@ SELECT COUNT(*) FROM financial_installments WHERE status = 'pago';
 
 ---
 
-### 5. **Pagination for Large Result Sets**
+### 5. **Pagination for Large Result Sets & Frontend Syncing**
 
 ❌ **Anti-pattern (No limit)**:
 
@@ -186,7 +186,7 @@ contracts, err := repo.GetAllContracts()
 // Memory spike, network bloat, slow rendering
 ```
 
-✅ **Correct Pattern (Pagination)**:
+✅ **Correct Pattern (Pagination & Scroll sync)**:
 
 ```go
 // Load 20 per page
@@ -194,11 +194,33 @@ contracts, total, err := repo.GetContractsPaginated(limit: 20, offset: 0)
 // Next page: offset: 20, etc.
 ```
 
-**Implementation**:
+**Implementation & Pitfalls**:
 
 - All list endpoints now support `limit` (default 20, max 500) and `offset`
 - Backend returns `{data, total, limit, offset}`
 - Frontend implements infinite scroll or page navigation
+- **Gotcha (React-Select)**: When implementing `onMenuScrollToBottom` to trigger pagination offsets, avoid passing `isLoading=true` while keeping previous options mounted. `react-select` recalculates its scroll height when `isLoading` changes, tricking it into firing a cascade of `offset` requests (infinite scroll loop). Handle pagination loading state internally instead of using the library's built-in `isLoading` prop if you want seamless background scrolling.
+- **Gotcha (Backend SQL logic)**: Always verify that `limit` parameters parsed by handlers propagate down to the actual data repository (`category_store.go`). HTTP query limits are purely cosmetic if the database driver doesn't physically append `LIMIT $X` to the executed SQL string.
+
+#### Example 3: Simplifying Soft-Delete States (Schema Cleanup)
+
+Tracking redundant soft-delete logic (e.g., using both `archived_at` and a custom feature like `cancelled_at`) severely bloats execution plans because every SELECT query requires multifaceted `NULL` checks.
+
+```sql
+-- BEFORE: Bloated query execution plan
+SELECT * FROM contracts 
+WHERE client_id = $1 
+AND archived_at IS NULL 
+AND cancelled_at IS NULL; 
+
+-- AFTER: Schema simplification
+-- Dropped cancelled_at entirely. Consolidated logic to archived_at.
+SELECT * FROM contracts 
+WHERE client_id = $1 
+AND archived_at IS NULL;
+```
+
+*Takeaway: The best query optimization is often deleting unnecessary schema columns. Fewer conditions require fewer composite indexes and result in highly predictable explain plans.*
 
 ---
 
@@ -353,6 +375,43 @@ w.Header().Set("Cache-Control", "private, max-age=300, must-revalidate")
 
 ---
 
+### 9. **Perceived Performance: Non-Blocking Transitions**
+
+Even with highly optimized backend queries and an in-memory `DataContext` cache, the *perception* of speed can be ruined by rigid front-end loading states.
+
+❌ **Anti-pattern (Blocking Page Loaders)**:
+
+```javascript
+// A component that replaces the entire page content with a spinner if ANY data is loading.
+// This was present in Financial, Dashboard, Contracts, etc.
+if (loading) {
+    return <div className="loading-container"><Spinner /></div>;
+}
+return <div className="page-content">{/*...*/}</div>;
+```
+
+*Impact*: The sidebar and header remain, but the main content area completely flashes to a loading screen. This is visually jarring (Layout Jitter) and makes the app feel heavier than it actually is, even if the load takes only 100ms.
+
+✅ **Correct Pattern (Global Progress Bar + Instant Render)**:
+
+```javascript
+// Page structure renders immediately. 
+// Data tables handle their own empty/loading states gracefully, 
+// OR the data is already in cache and renders instantly.
+return <div className="page-content">{/*... table rendering data */}</div>;
+```
+
+*Combined with*:
+A global `TopProgressBar` component (mounted inside `App.jsx`) that intercepts route clicks natively at the DOM level and tracks `location.pathname` changes.
+
+**Why This Matters:**
+
+- When navigating to a cached page, the structural DOM never unmounts unnecessarily. The new page content replaces the old content instantly.
+- The top progress bar gives immediate tactical feedback ("your click registered and we are working on it") without destroying the user's visual context.
+- It simulates the "premium feel" of modern enterprise applications, closing the gap between actual network speed and human perception.
+
+---
+
 ## Case Study: Contracts & Financial Pages — From 6 API Calls to 1 Enriched Response
 
 ### The Problem: "Slow Despite Earlier Fixes"
@@ -496,7 +555,7 @@ Promise.allSettled([
 ### Performance Impact
 
 | Metric | Before | After | Improvement |
-|--------|--------|-------|-------------|
+| -------- | -------- | ------- | ------------- |
 | **Contracts Page Load (FCP)** | 4–6 sec | 0.8–1.2 sec | **4-5x faster** |
 | **Financial Page Load (FCP)** | 6–8 sec | 1.0–1.5 sec | **4-8x faster** |
 | **API Calls (Critical Path)** | 3–6 calls | 1 call | **3-6x fewer** |
@@ -513,7 +572,7 @@ Promise.allSettled([
 ### Trade-offs & Considerations
 
 | Aspect | Trade-off | Mitigation |
-|--------|-----------|-----------|
+| -------- | ----------- | ----------- |
 | **Payload size** | Enriched responses are slightly larger (client_name + category_name per row) | Still much smaller than 3 separate API calls; names are strings, ~50 bytes per record |
 | **Query complexity** | Slightly more complex SQL (LEFT JOINs) | Queries still execute in <100ms with proper indexes; no performance regression |
 | **Cache invalidation** | If client/category names change, enriched responses may be stale | Acceptable; names rarely change; can add cache-busting header if needed |
@@ -534,7 +593,7 @@ Promise.allSettled([
 
 #### Before: 15,000–20,000 queries, 15–30 seconds
 
-```
+```text
 1. GetContracts() [1 query]
    ↓
 2. For each contract:
@@ -548,7 +607,7 @@ Promise.allSettled([
 
 #### After: 4–5 queries, ~0.72 seconds
 
-```
+```text
 1. GetContracts() [1 query]
 2. GetFinancialsByContractIDBatch(contractIDs) [1 query, JOIN optimized]
 3. GetInstallmentsByContractIDBatch(contractIDs) [1 query, aggregate in SQL]
@@ -558,7 +617,7 @@ Promise.allSettled([
 ### Key Changes
 
 | Aspect | Before | After |
-|--------|--------|-------|
+| :--- | :--- | :--- |
 | **Queries** | 15,000–20,000 | 4–5 |
 | **Load Time** | 15–30 sec | 0.72 sec |
 | **Approach** | N+1, app aggregation | Batch, SQL aggregation |
@@ -715,7 +774,7 @@ try {
 ### Current Performance Baseline (as of 2026-02-22)
 
 | Page | Query Count | Load Time | API Requests | Status |
-|------|------------|-----------|-------------|--------|
+| ------ | ------------ | ----------- | ------------- | -------- |
 | Contracts List | 2–3 | <500ms | **0** (cache hit) | ✅ DataContext cache |
 | Financial Dashboard | 4–5 | 0.72s | **4** (was 5) | ✅ Categories cache fix |
 | Clients List | 1–2 | <300ms | 2 | ✅ Optimized |
@@ -727,7 +786,7 @@ try {
 ### Projection: 10x Data Growth (250,000 contracts)
 
 | Scenario | Query Count | Estimated Time | Mitigation |
-|----------|------------|-----------------|-----------|
+| ---------- | ------------ | ----------------- | ----------- |
 | Financial Dashboard (no changes) | 4–5 | 0.9–1.2s | ✅ Still acceptable |
 | With new indexes | 4–5 | 0.7–0.9s | ✅ Indexes scale well |
 | Without pagination | 4–5 | 5–10s | ⚠️ Pagination required |
@@ -737,7 +796,7 @@ try {
 ### Projection: 100x Data Growth (2.5M+ contracts)
 
 | Action | Impact |
-|--------|--------|
+| -------- | -------- |
 | **Materialized Views** | Precompute monthly/annual summaries, update hourly |
 | **Partitioning** | Split `financial_installments` by year, status |
 | **Caching Layer** | Redis for dashboard summaries (5-min TTL) |
@@ -802,7 +861,7 @@ try {
 
 All API requests are logged in a single-line, fixed-width columnar format for easy scanning:
 
-```
+```text
 PAGE(14)       | METHOD(6) | API(35)                             | STATUS | DURATION     | user, role
 /dashboard     | GET       | /api/dashboard/counts               | 200    |      6.47ms  | root, root
 /financial     | GET       | /api/financial/detailed-summary     | 200    |     34.671ms | root, root
@@ -817,7 +876,7 @@ PAGE(14)       | METHOD(6) | API(35)                             | STATUS | DURA
 Login and logout events are recorded in the `audit_logs` table:
 
 | Event | Operation | Resource | Status | Details |
-|-------|-----------|----------|--------|---------|
+| ------- | ----------- | ---------- | -------- | --------- |
 | Successful login | `login` | `auth` | `success` | method=password |
 | Failed login | `login` | `auth` | `failed` | reason=invalid credentials |
 | Manual logout | `logout` | `auth` | `success` | method=manual |
@@ -842,7 +901,7 @@ LIMIT 10;
 ### Query Metrics to Track
 
 | Metric | Target | Action if Exceeded |
-|--------|--------|-------------------|
+| -------- | -------- | ------------------- |
 | Financial dashboard query count | < 10 | Review batch loading |
 | Average response time | < 1s | Check indexes, add caching |
 | Slow query frequency | < 5% | Analyze query plans |
@@ -855,7 +914,7 @@ LIMIT 10;
 ## Anti-Patterns to Avoid
 
 | Anti-Pattern | Problem | Solution |
-|-------------|---------|----------|
+| ------------- | --------- | ---------- |
 | **SELECT * without limit** | Loads all rows, slow network | Add `LIMIT`, use pagination |
 | **N+1 queries** | Exponential query count | Use batch methods |
 | **App-level aggregation** | Slow, memory-heavy | Aggregate in SQL |
