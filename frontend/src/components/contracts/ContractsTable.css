@@ -141,6 +141,18 @@
     background: var(--hover-bg, rgba(0, 0, 0, 0.05));
 }
 
+.contracts-table-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    align-items: center;
+}
+
+.contracts-table-icon.delete-icon {
+    /* Red filter for the SVG matching Categories */
+    filter: invert(37%) sepia(93%) saturate(1447%) hue-rotate(342deg) brightness(94%) contrast(88%);
+}
+
 .contracts-table-button-details {
     background: #9b59b6;
 }
@@ -184,4 +196,14 @@
 .dark-mode .contracts-table-affiliate,
 .dark-mode .contracts-table-line {
     color: var(--secondary-text-color, #a0aec0);
+}
+
+/* Clickable rows */
+.contracts-table-row-clickable {
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.contracts-table-row-clickable:hover {
+    background: var(--hover-bg, rgba(0, 0, 0, 0.035));
 }

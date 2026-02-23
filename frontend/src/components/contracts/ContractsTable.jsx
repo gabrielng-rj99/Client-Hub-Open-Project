@@ -23,10 +23,9 @@ import {
     getClientName,
 } from "../../utils/contractHelpers";
 import "./ContractsTable.css";
-import InfoIcon from "../../assets/icons/info.svg";
-import EditIcon from "../../assets/icons/edit.svg";
 import ArchiveIcon from "../../assets/icons/archive.svg";
 import UnarchiveIcon from "../../assets/icons/unarchive.svg";
+import TrashIcon from "../../assets/icons/trash.svg";
 
 import { useConfig } from "../../contexts/ConfigContext";
 
@@ -34,10 +33,10 @@ export default function ContractsTable({
     filteredContracts,
     clients,
     categories,
-    onViewDetails,
     onEdit,
     onArchive,
     onUnarchive,
+    onDelete,
 }) {
     const { config } = useConfig();
     const { labels } = config;
@@ -113,10 +112,20 @@ export default function ContractsTable({
                     const status = getContractStatus(contract);
                     const isArchived = !!contract.archived_at;
 
+                    // Status badge: archived > computed
+                    const statusLabel = isArchived
+                        ? "Arquivado"
+                        : status.status;
+                    const statusColor = isArchived
+                        ? "#95a5a6"
+                        : status.color;
+
                     return (
                         <tr
                             key={contract.id}
-                            className={isArchived ? "archived" : ""}
+                            className={`${isArchived ? "archived" : ""} contracts-table-row-clickable`}
+                            onClick={() => onEdit(contract)}
+                            title="Clique para abrir detalhes"
                         >
                             <td>
                                 <div className="contracts-table-model">
@@ -145,64 +154,50 @@ export default function ContractsTable({
                                 <span
                                     className="contracts-table-status"
                                     style={{
-                                        background: `${status.color}20`,
-                                        color: status.color,
+                                        background: `${statusColor}20`,
+                                        color: statusColor,
                                     }}
                                 >
-                                    {isArchived ? "Arquivado" : status.status}
+                                    {statusLabel}
                                 </span>
                             </td>
-                            <td className="actions">
+                            <td
+                                className="actions"
+                                onClick={(e) => e.stopPropagation()}
+                            >
                                 <div className="contracts-table-actions">
+                                    {/* Delete */}
                                     <button
-                                        onClick={() => onViewDetails(contract)}
+                                        onClick={() => onDelete?.(contract)}
                                         className="contracts-table-icon-button"
-                                        title="Detalhes"
+                                        title="Excluir contrato"
                                     >
                                         <img
-                                            src={InfoIcon}
-                                            alt="Detalhes"
-                                            style={{
-                                                width: "22px",
-                                                height: "22px",
-                                            }}
+                                            src={TrashIcon}
+                                            alt="Deletar"
+                                            className="contracts-table-icon delete-icon"
                                         />
                                     </button>
+
+                                    {/* Archive / Unarchive */}
                                     {!isArchived && (
-                                        <>
-                                            <button
-                                                onClick={() => onEdit(contract)}
-                                                className="contracts-table-icon-button"
-                                                title="Editar"
-                                            >
-                                                <img
-                                                    src={EditIcon}
-                                                    alt="Editar"
-                                                    style={{
-                                                        width: "22px",
-                                                        height: "22px",
-                                                        filter: "invert(44%) sepia(92%) saturate(1092%) hue-rotate(182deg) brightness(95%) contrast(88%)",
-                                                    }}
-                                                />
-                                            </button>
-                                            <button
-                                                onClick={() =>
-                                                    onArchive(contract.id)
-                                                }
-                                                className="contracts-table-icon-button"
-                                                title="Arquivar"
-                                            >
-                                                <img
-                                                    src={ArchiveIcon}
-                                                    alt="Arquivar"
-                                                    style={{
-                                                        width: "22px",
-                                                        height: "22px",
-                                                        filter: "invert(64%) sepia(81%) saturate(455%) hue-rotate(359deg) brightness(98%) contrast(91%)",
-                                                    }}
-                                                />
-                                            </button>
-                                        </>
+                                        <button
+                                            onClick={() =>
+                                                onArchive(contract.id)
+                                            }
+                                            className="contracts-table-icon-button"
+                                            title="Arquivar"
+                                        >
+                                            <img
+                                                src={ArchiveIcon}
+                                                alt="Arquivar"
+                                                style={{
+                                                    width: "22px",
+                                                    height: "22px",
+                                                    filter: "invert(64%) sepia(81%) saturate(455%) hue-rotate(359deg) brightness(98%) contrast(91%)",
+                                                }}
+                                            />
+                                        </button>
                                     )}
                                     {isArchived && (
                                         <button
