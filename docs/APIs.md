@@ -112,7 +112,7 @@ This API uses Role-Based Access Control (RBAC) with granular permissions. Each e
 
 | Method | Endpoint | Authentication | Required Parameters | Response Fields |
 | :--- | :--- | :--- | :--- | :--- |
-| `GET` | `/api/financial` | Authenticated with `financial:read` permission | N/A | List of Financial (`id`, `contract_id`, `financial_type`, `recurrence_type`, `due_day`, `client_value`, `received_value`, `description`, `is_active`, `total_client_value`, `total_received_value`, `total_installments`, `paid_installments`) |
+| `GET` | `/api/financial` | Authenticated with `financial:read` permission | Optional Query: `page`, `limit` | List of Financial (`id`, `contract_id`, `client_id`, `client_name`, `contract_model`, `contract_item_key`, `financial_type`, `recurrence_type`, `due_day`, `client_value`, `received_value`, `description`, `is_active`, `total_client_value`, `total_received_value`, `total_installments`, `paid_installments`) with pagination metadata |
 | `POST` | `/api/financial` | Authenticated with `financial:create` permission | `contract_id`, `financial_type` (Optional: `recurrence_type`, `due_day`, `client_value`, `received_value`, `description`, `installments[]`) | `id`, `message` |
 | `GET` | `/api/financial/{id}` | Authenticated with `financial:read` permission | N/A | Complete Financial Object with Installments |
 | `PUT` | `/api/financial/{id}` | Authenticated with `financial:update` permission | `financial_type` (Optional: `recurrence_type`, `due_day`, `client_value`, `received_value`, `description`, `is_active`, `installments[]`) | `message` |
