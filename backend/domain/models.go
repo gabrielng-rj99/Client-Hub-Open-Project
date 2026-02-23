@@ -145,7 +145,7 @@ func (c *Contract) IsActive(at time.Time) bool {
 	return startedAlready && notExpired
 }
 
-// Status calcula e retorna o estado atual do contrato (Ativo, Expirando, Expirado).
+// Status calcula e retorna o estado atual do contrato (Ativo, Expirando, Expirado, Cancelado).
 func (c *Contract) Status() string {
 	now := time.Now()
 

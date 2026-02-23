@@ -354,14 +354,15 @@ func TestUpdateCategory(t *testing.T) {
 
 			// For each subtest, insert fresh category if needed
 			var testCategoryID string
-			if tt.category.ID == categoryID {
+			switch tt.category.ID {
+			case categoryID:
 				id, err := InsertTestCategory(db, "Test Category")
 				if err != nil {
 					t.Fatalf("Failed to insert test category: %v", err)
 				}
 				testCategoryID = id
 				tt.category.ID = testCategoryID
-			} else if tt.category.ID == "non-existent-id" {
+			case "non-existent-id":
 				tt.category.ID = "550e8400-e29b-41d4-a716-446655440000"
 			}
 
@@ -579,7 +580,7 @@ func TestUpdateCategoryStatus(t *testing.T) {
 	}
 }
 
-func TestGetCategoriesByName(t *testing.T) {
+func TestSearchCategories(t *testing.T) {
 	db, err := SetupTestDB()
 	if err != nil {
 		t.Fatalf("Failed to setup test DB: %v", err)
@@ -599,7 +600,7 @@ func TestGetCategoriesByName(t *testing.T) {
 	store.CreateCategory(cat2)
 
 	// Test Exact Match
-	cats, err := store.GetCategoriesByName("SearchAlpha")
+	cats, err := store.SearchCategories("SearchAlpha", true, 0, 0)
 	if err != nil {
 		t.Fatalf("Failed to search categories: %v", err)
 	}

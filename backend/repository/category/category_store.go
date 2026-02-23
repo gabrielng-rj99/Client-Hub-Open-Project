@@ -23,6 +23,7 @@ import (
 	"Open-Generic-Hub/backend/repository"
 	"database/sql"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -132,15 +133,39 @@ func (s *CategoryStore) GetAllCategoriesIncludingArchived() (categories []domain
 	return categories, nil
 }
 
-// GetCategoriesByName busca categorias por nome (case-insensitive, parcial)
-func (s *CategoryStore) GetCategoriesByName(name string) ([]domain.Category, error) {
+// SearchCategories busca categorias por nome, com suporte a limites e filtro de inativos
+func (s *CategoryStore) SearchCategories(name string, includeArchived bool, limit int, offset int) ([]domain.Category, error) {
 	name = strings.TrimSpace(name)
-	if name == "" {
-		return nil, errors.New("name cannot be empty")
+	var sqlStatement string
+	var args []interface{}
+	argsCount := 1
+
+	sqlStatement = `SELECT id, name, status, archived_at FROM categories WHERE 1=1`
+
+	if name != "" {
+		sqlStatement += fmt.Sprintf(` AND name ILIKE $%d`, argsCount)
+		args = append(args, "%"+name+"%")
+		argsCount++
 	}
-	sqlStatement := `SELECT id, name, status, archived_at FROM categories WHERE name LIKE $1 AND archived_at IS NULL`
-	likePattern := "%" + name + "%"
-	rows, err := s.db.Query(sqlStatement, likePattern)
+
+	if !includeArchived {
+		sqlStatement += ` AND archived_at IS NULL`
+	}
+	sqlStatement += ` ORDER BY name ASC`
+
+	if limit > 0 {
+		sqlStatement += fmt.Sprintf(" LIMIT $%d", argsCount)
+		args = append(args, limit)
+		argsCount++
+	}
+
+	if offset > 0 {
+		sqlStatement += fmt.Sprintf(" OFFSET $%d", argsCount)
+		args = append(args, offset)
+		argsCount++
+	}
+
+	rows, err := s.db.Query(sqlStatement, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -152,6 +177,7 @@ func (s *CategoryStore) GetCategoriesByName(name string) ([]domain.Category, err
 			}
 		}
 	}()
+
 	var categories []domain.Category
 	for rows.Next() {
 		var category domain.Category
