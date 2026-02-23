@@ -18,6 +18,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import Select from "react-select";
+import AsyncSelect from "react-select/async";
 import { useConfig } from "../contexts/ConfigContext";
 import { useData } from "../contexts/DataContext";
 import { contractsApi } from "../api/contractsApi";
@@ -177,6 +178,120 @@ export default function Contracts({ token, apiUrl, onTokenExpired }) {
     const [modalMode, setModalMode] = useState("create");
     const [selectedContract, setSelectedContract] = useState(null);
     const [formData, setFormData] = useState(getInitialFormData());
+
+    // ── Pagination State for Clients Filter ──────────────────────────────────
+    const [filterClientOptions, setFilterClientOptions] = useState([]);
+    const [filterClientLoading, setFilterClientLoading] = useState(false);
+    const [filterClientSearch, setFilterClientSearch] = useState("");
+    const [filterClientOffset, setFilterClientOffset] = useState(0);
+    const [filterClientHasMore, setFilterClientHasMore] = useState(true);
+    const filterClientSearchTimeout = useRef(null);
+
+    const loadFilterClientPage = async (query = "", offset = 0, isNewSearch = false) => {
+        setFilterClientLoading(true);
+        try {
+            const results = await handleSearchClients(query, offset);
+            const formatted = results.map(c => ({ value: c.name, label: c.name }));
+            const clearOpt = { value: "", label: `Todos os ${config.labels.clients?.toLowerCase() || "clientes"}` };
+
+            if (isNewSearch) {
+                setFilterClientOptions([clearOpt, ...formatted]);
+            } else {
+                setFilterClientOptions(prev => {
+                    const existingIds = new Set(prev.map(p => p.value));
+                    const newItems = formatted.filter(f => !existingIds.has(f.value));
+                    return [...prev, ...newItems];
+                });
+            }
+            setFilterClientHasMore(results.length === 100);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setFilterClientLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (!loading) {
+            loadFilterClientPage("", 0, true);
+        }
+    }, [loading]);
+
+    const handleFilterClientScrollToBottom = () => {
+        if (!filterClientLoading && filterClientHasMore) {
+            const nextOffset = filterClientOffset + 100;
+            setFilterClientOffset(nextOffset);
+            loadFilterClientPage(filterClientSearch, nextOffset, false);
+        }
+    };
+
+    const handleFilterClientInputChange = (val, actionMeta) => {
+        if (actionMeta.action === "input-change") {
+            setFilterClientSearch(val);
+            if (filterClientSearchTimeout.current) clearTimeout(filterClientSearchTimeout.current);
+            filterClientSearchTimeout.current = setTimeout(() => {
+                setFilterClientOffset(0);
+                loadFilterClientPage(val, 0, true);
+            }, 300);
+        }
+    };
+
+    // ── Pagination State for Categories Filter ────────────────────────────────
+    const [filterCatOptions, setFilterCatOptions] = useState([]);
+    const [filterCatLoading, setFilterCatLoading] = useState(false);
+    const [filterCatSearch, setFilterCatSearch] = useState("");
+    const [filterCatOffset, setFilterCatOffset] = useState(0);
+    const [filterCatHasMore, setFilterCatHasMore] = useState(true);
+    const filterCatSearchTimeout = useRef(null);
+
+    const loadFilterCategoryPage = async (query = "", offset = 0, isNewSearch = false) => {
+        setFilterCatLoading(true);
+        try {
+            const results = await handleSearchCategories(query, offset);
+            const formatted = results.map(c => ({ value: c.id, label: c.name }));
+            const clearOpt = { value: "", label: `Todas as ${config.labels.categories?.toLowerCase() || "categorias"}` };
+
+            if (isNewSearch) {
+                setFilterCatOptions([clearOpt, ...formatted]);
+            } else {
+                setFilterCatOptions(prev => {
+                    const existingIds = new Set(prev.map(p => p.value));
+                    const newItems = formatted.filter(f => !existingIds.has(f.value));
+                    return [...prev, ...newItems];
+                });
+            }
+            setFilterCatHasMore(results.length > 0 && results.length % 100 === 0);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setFilterCatLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (!loading) {
+            loadFilterCategoryPage("", 0, true);
+        }
+    }, [loading]);
+
+    const handleFilterCatScrollToBottom = () => {
+        if (!filterCatLoading && filterCatHasMore) {
+            const nextOffset = filterCatOffset + 100;
+            setFilterCatOffset(nextOffset);
+            loadFilterCategoryPage(filterCatSearch, nextOffset, false);
+        }
+    };
+
+    const handleFilterCatInputChange = (val, actionMeta) => {
+        if (actionMeta.action === "input-change") {
+            setFilterCatSearch(val);
+            if (filterCatSearchTimeout.current) clearTimeout(filterCatSearchTimeout.current);
+            filterCatSearchTimeout.current = setTimeout(() => {
+                setFilterCatOffset(0);
+                loadFilterCategoryPage(val, 0, true);
+            }, 300);
+        }
+    };
     const { config, getGenderHelpers } = useConfig();
     const g = getGenderHelpers("contract");
 
@@ -383,6 +498,49 @@ export default function Contracts({ token, apiUrl, onTokenExpired }) {
         }
     };
 
+    const [deleteDialogContract, setDeleteDialogContract] = useState(null);
+
+    const handleDeleteClick = (contract) => {
+        const isArchived = !!contract.archived_at;
+        const statusObj = getContractStatus(contract);
+
+        // Se já está arquivado ou expirado, ou se não iniciou ainda, confirmar via window.confirm
+        if (isArchived || statusObj.status === "Expirado" || statusObj.status === "Não Iniciado") {
+            if (window.confirm("Deseja realmente excluir este contrato permanentemente? Esta ação não pode ser desfeita.")) {
+                handleConfirmDelete(contract.id);
+            }
+        } else {
+            // Contrato ativo / próximo ao vencimento: mostra o modal inteligente
+            setDeleteDialogContract(contract);
+        }
+    };
+
+    const handleConfirmDelete = async (contractId) => {
+        setDeleteDialogContract(null);
+        try {
+            await contractsApi.deleteContract(
+                apiUrl,
+                token,
+                contractId,
+                onTokenExpired,
+            );
+            invalidateCache("contracts");
+            await loadContracts(true);
+        } catch (err) {
+            setError(err.message);
+        }
+    };
+
+    // Search clients for AsyncSelect in the modal
+    const handleSearchClients = async (query, offset = 0) => {
+        return contractsApi.searchClients(apiUrl, token, query, onTokenExpired, offset);
+    };
+
+    // Search categories for AsyncSelect in the modal and filters
+    const handleSearchCategories = async (query, offset = 0) => {
+        return contractsApi.searchCategories(apiUrl, token, query, onTokenExpired, offset);
+    };
+
     const openCreateModal = () => {
         setModalMode("create");
         setFormData(getInitialFormData());
@@ -398,6 +556,16 @@ export default function Contracts({ token, apiUrl, onTokenExpired }) {
         setSelectedContract(contract);
         setFormData(formatContractForEdit(contract));
         setShowModal(true);
+
+        // Fetch fresh data in the background so fields are always up-to-date
+        contractsApi.getContractByID(apiUrl, token, contract.id, onTokenExpired)
+            .then((fresh) => {
+                if (fresh) {
+                    setSelectedContract(fresh);
+                    setFormData(formatContractForEdit(fresh));
+                }
+            })
+            .catch(() => { }); // fallback to already-set data
 
         if (contract.client_id) {
             loadAffiliates(contract.client_id);
@@ -655,16 +823,6 @@ export default function Contracts({ token, apiUrl, onTokenExpired }) {
     const endIndex = startIndex + itemsPerPage;
     const filteredContracts = allFilteredContracts.slice(startIndex, endIndex);
 
-    if (loading) {
-        return (
-            <div className="contracts-loading">
-                <div className="contracts-loading-text">
-                    Carregando contratos...
-                </div>
-            </div>
-        );
-    }
-
     return (
         <div className="contracts-container">
             <div className="contracts-header">
@@ -721,35 +879,26 @@ export default function Contracts({ token, apiUrl, onTokenExpired }) {
 
             <div className="contracts-search-filters">
                 <Select
+                    options={filterClientOptions}
+                    onInputChange={handleFilterClientInputChange}
+                    onMenuScrollToBottom={handleFilterClientScrollToBottom}
                     value={
                         clientNameFilter
-                            ? {
-                                value: clientNameFilter,
-                                label: clientNameFilter,
-                            }
+                            ? { value: clientNameFilter, label: clientNameFilter }
                             : null
                     }
-                    onChange={(selected) =>
-                        setClientNameFilter(selected ? selected.value : "")
-                    }
-                    options={[
-                        {
-                            value: "",
-                            label: `Todos os ${config.labels.clients?.toLowerCase() || "clientes"}`,
-                        },
-                        ...clients
-                            .filter((c) => !c.archived_at)
-                            .map((client) => ({
-                                value: client.name,
-                                label: client.name,
-                            })),
-                    ]}
-                    isSearchable={true}
-                    placeholder={`Filtrar por ${config.labels.client?.toLowerCase() || "cliente"}`}
+                    onChange={(selected) => setClientNameFilter(selected ? selected.value : "")}
+                    isClearable
+                    isSearchable
+                    filterOption={null}
+                    placeholder={`Filtrar por ${config.labels.client?.toLowerCase() || "cliente"}...`}
                     styles={customSelectStyles}
                 />
 
                 <Select
+                    options={filterCatOptions}
+                    onInputChange={handleFilterCatInputChange}
+                    onMenuScrollToBottom={handleFilterCatScrollToBottom}
                     value={
                         categoryIdFilter
                             ? {
@@ -757,27 +906,15 @@ export default function Contracts({ token, apiUrl, onTokenExpired }) {
                                 label:
                                     categories.find(
                                         (c) => c.id === categoryIdFilter,
-                                    )?.name || "",
+                                    )?.name || "Selecionado",
                             }
                             : null
                     }
-                    onChange={(selected) =>
-                        setCategoryIdFilter(selected ? selected.value : "")
-                    }
-                    options={[
-                        {
-                            value: "",
-                            label: `Todas as ${config.labels.categories?.toLowerCase() || "categorias"}`,
-                        },
-                        ...categories
-                            .filter((c) => !c.archived_at)
-                            .map((category) => ({
-                                value: category.id,
-                                label: category.name,
-                            })),
-                    ]}
-                    isSearchable={true}
-                    placeholder={`Selecionar ${config.labels.categories?.toLowerCase() || "categoria"}`}
+                    onChange={(selected) => setCategoryIdFilter(selected ? selected.value : "")}
+                    isClearable
+                    isSearchable
+                    filterOption={null}
+                    placeholder={`Selecionar ${config.labels.categories?.toLowerCase() || "categoria"}...`}
                     styles={customSelectStyles}
                 />
 
@@ -963,10 +1100,10 @@ export default function Contracts({ token, apiUrl, onTokenExpired }) {
                     filteredContracts={filteredContracts}
                     clients={clients}
                     categories={categories}
-                    onViewDetails={openDetailsModal}
                     onEdit={openEditModal}
                     onArchive={handleArchiveContract}
                     onUnarchive={handleUnarchiveContract}
+                    onDelete={handleDeleteClick}
                 />
             </div>
 
@@ -991,6 +1128,8 @@ export default function Contracts({ token, apiUrl, onTokenExpired }) {
                 onClose={closeModal}
                 onCategoryChange={handleCategoryChange}
                 onClientChange={handleClientChange}
+                onSearchClients={handleSearchClients}
+                onSearchCategories={handleSearchCategories}
                 error={error}
                 financialData={existingFinancial}
                 onFinancialChange={setFinancialData}
@@ -998,6 +1137,16 @@ export default function Contracts({ token, apiUrl, onTokenExpired }) {
                 showFinancialValues={true}
                 canEditFinancialValues={true}
             />
+
+            {/* Smart Delete Dialog */}
+            {deleteDialogContract && (
+                <DeleteContractDialog
+                    contractId={deleteDialogContract.id}
+                    onArchive={handleArchiveContract}
+                    onDelete={handleConfirmDelete}
+                    onClose={() => setDeleteDialogContract(null)}
+                />
+            )}
 
             {showDetailsModal && selectedContract && (
                 <div
@@ -1154,6 +1303,116 @@ function DetailRow({ label, value }) {
                 }}
             >
                 {value}
+            </div>
+        </div>
+    );
+}
+
+/**
+ * DeleteContractDialog - shown when deleting an Active contract.
+ * Offers options to Archive instead, Cancel, or Delete Permanently.
+ */
+function DeleteContractDialog({ contractId, onArchive, onDelete, onClose }) {
+    const [loading, setLoading] = React.useState(false);
+
+    const handleArchive = async () => {
+        setLoading(true);
+        await onArchive(contractId);
+        setLoading(false);
+        onClose();
+    };
+
+    const handleDelete = async () => {
+        setLoading(true);
+        await onDelete(contractId);
+        setLoading(false);
+        onClose();
+    };
+
+    return (
+        <div
+            style={{
+                position: "fixed",
+                inset: 0,
+                background: "rgba(0,0,0,0.55)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                zIndex: 2000,
+            }}
+            onClick={onClose}
+        >
+            <div
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                    background: "var(--content-bg, white)",
+                    borderRadius: "10px",
+                    padding: "32px",
+                    width: "420px",
+                    boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
+                    textAlign: "center"
+                }}
+            >
+                <h3 style={{ margin: "0 0 16px 0", fontSize: "18px", color: "#2c3e50" }}>
+                    Tem certeza que deseja excluir?
+                </h3>
+                <p style={{ margin: "0 0 24px 0", fontSize: "14px", color: "#7f8c8d", lineHeight: "1.5" }}>
+                    Este contrato ainda está ativo. Em vez de excluí-lo definitivamente (o que apagará todo o histórico), sugerimos arquivá-lo.
+                </p>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                    <button
+                        onClick={handleArchive}
+                        disabled={loading}
+                        style={{
+                            padding: "12px",
+                            background: "#3498db",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "6px",
+                            cursor: loading ? "wait" : "pointer",
+                            fontSize: "14px",
+                            fontWeight: "600",
+                        }}
+                    >
+                        {loading ? "Processando..." : "Arquivar em vez de excluir"}
+                    </button>
+
+                    <button
+                        onClick={onClose}
+                        disabled={loading}
+                        style={{
+                            padding: "12px",
+                            background: "#95a5a6",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "6px",
+                            cursor: "pointer",
+                            fontSize: "14px",
+                            fontWeight: "600",
+                        }}
+                    >
+                        Desistir
+                    </button>
+
+                    <button
+                        onClick={handleDelete}
+                        disabled={loading}
+                        style={{
+                            padding: "12px",
+                            background: "transparent",
+                            color: "#e74c3c",
+                            border: "1px solid #e74c3c",
+                            borderRadius: "6px",
+                            cursor: loading ? "wait" : "pointer",
+                            fontSize: "14px",
+                            fontWeight: "600",
+                            marginTop: "12px",
+                        }}
+                    >
+                        {loading ? "Processando..." : "Excluir permanentemente"}
+                    </button>
+                </div>
             </div>
         </div>
     );
