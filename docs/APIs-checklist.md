@@ -636,6 +636,9 @@ Testes de tentativas de elevação de privilégio via adulteração de request b
  | Categoria | Teste | Status | Arquivo |
  | ----------- | ------- | -------- | --------- |
  | **Auth** | Sem token | ⬜ | pending |
+ | **Auth** | Invalid token | ⬜ | pending |
+ | **Auth** | Expired token | ⬜ | pending |
+ | **Permission** | Validar restrições por role | ⬜ | pending |
 
 ### POST /api/clients
 
@@ -1285,6 +1288,9 @@ Testes de tentativas de elevação de privilégio via adulteração de request b
  | Categoria | Teste | Status | Arquivo |
  | ----------- | ------- | -------- | --------- |
  | **Auth** | Sem token | ⬜ | pending |
+ | **Auth** | Invalid token | ⬜ | pending |
+ | **Auth** | Expired token | ⬜ | pending |
+ | **Permission** | Validar restrições por role | ⬜ | pending |
 
 ### GET /api/system-config/dashboard
 
