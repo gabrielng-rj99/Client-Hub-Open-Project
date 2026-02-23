@@ -411,14 +411,6 @@ export default function Dashboard({ token, apiUrl, onTokenExpired }) {
         .sort((a, b) => b.date - a.date)
         .slice(0, dashboardSettings.recent_activity_count || 15);
 
-    if (loading) {
-        return (
-            <div className="dashboard-loading">
-                <div className="dashboard-loading-text">Carregando...</div>
-            </div>
-        );
-    }
-
     if (error) {
         return (
             <div className="dashboard-error-container">

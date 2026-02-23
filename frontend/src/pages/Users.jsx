@@ -277,14 +277,6 @@ export default function Users({
         role: roleFilter,
     });
 
-    if (loading) {
-        return (
-            <div className="users-loading">
-                <div className="users-loading-text">Carregando usuários...</div>
-            </div>
-        );
-    }
-
     return (
         <div className="users-container">
             <div className="users-header">

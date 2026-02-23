@@ -520,16 +520,6 @@ export default function Categories({ token, apiUrl, onTokenExpired }) {
     const activeCount = categories.filter((c) => !c.archived_at).length;
     const archivedCount = categories.filter((c) => !!c.archived_at).length;
 
-    if (loading) {
-        return (
-            <div className="categories-loading">
-                <div className="categories-loading-text">
-                    Carregando categorias...
-                </div>
-            </div>
-        );
-    }
-
     return (
         <div className="categories-container">
             <div className="categories-header">

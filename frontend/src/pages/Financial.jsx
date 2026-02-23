@@ -951,18 +951,6 @@ export default function Financial({ token, apiUrl, onTokenExpired }) {
         return results;
     };
 
-    if (loading) {
-        return (
-            <div className="financial-container">
-                <div className="financial-loading">
-                    <p className="financial-loading-text">
-                        Carregando financeiro...
-                    </p>
-                </div>
-            </div>
-        );
-    }
-
     return (
         <div className="financial-container">
             {/* Header */}

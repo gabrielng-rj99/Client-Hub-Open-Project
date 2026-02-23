@@ -409,16 +409,6 @@ export default function Clients({ token, apiUrl, onTokenExpired }) {
     // Server handles filtering, sorting, and pagination — just use the data directly
     const filteredClients = clients;
 
-    if (loading) {
-        return (
-            <div className="clients-loading">
-                <div className="clients-loading-text">
-                    Carregando {config.labels.clients.toLowerCase()}...
-                </div>
-            </div>
-        );
-    }
-
     return (
         <div className="clients-container">
             <div className="clients-header">
