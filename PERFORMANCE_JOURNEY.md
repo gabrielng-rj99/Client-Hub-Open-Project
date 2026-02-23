@@ -275,7 +275,7 @@ export function handleResponseErrors(response, onTokenExpired) {
 ### Financial Dashboard
 
 | Metric | Before | After | Improvement |
-|--------|--------|-------|-------------|
+| :--- | :--- | :--- | :--- |
 | Page Load Time | 15–20s | 0.7–1s | **25–30x faster** |
 | SQL Queries | 15,000–20,000 | 2–3 | **99.99% reduction** |
 | Network Requests | 1 | 1 | (unchanged, already optimized in initial fix) |
@@ -285,7 +285,7 @@ export function handleResponseErrors(response, onTokenExpired) {
 ### Categories Page
 
 | Metric | Before | After | Improvement |
-|--------|--------|-------|-------------|
+| :--- | :--- | :--- | :--- |
 | Network Requests | 2,010 | 1 | **2,010x reduction** |
 | Network Time | 8–10s | 50–200ms | **50–100x faster** |
 | Page Responsiveness | Freezes | Instant | Smooth |
@@ -294,7 +294,7 @@ export function handleResponseErrors(response, onTokenExpired) {
 ### Contracts API
 
 | Metric | Before | After | Improvement |
-|--------|--------|-------|-------------|
+| :--- | :--- | :--- | :--- |
 | 500 Error Rate | 5–15% | 0% | **Complete fix** |
 | Response Time | 100–500ms (variable) | 50–150ms (stable) | **Consistent** |
 | Retry Storms | Frequent | None | **Eliminated** |
@@ -566,7 +566,7 @@ go tool pprof cpu.prof
   4. Added `Cache-Control: private, max-age=300, must-revalidate` to stable GET endpoints (`/settings`, `/user/theme`, `/system-config/dashboard`)
   5. Implemented fixed-width columnar log format in `middleware_logging.go`:
 
-     ```
+     ```text
      /dashboard     | GET    | /api/dashboard/counts               | 200 |      6.47ms  | root, root
      ```
 
@@ -580,7 +580,7 @@ go tool pprof cpu.prof
 - **Results** (per-page requests after all optimizations):
 
   | Page | Requests | Notes |
-  |------|----------|-------|
+  | :--- | :--- | :--- |
   | `/dashboard` (initial) | 7 | Normal initial load |
   | `/contracts` | **0** | DataContext cache hit |
   | `/categories` | 1 | Only page-specific data |
@@ -593,6 +593,49 @@ go tool pprof cpu.prof
   | `/dashboard` (return) | 1 | Only fresh counts |
 
 - **Key learning**: Call-signature mismatches are silent killers. `fetchCategories({}, false)` looked correct but `{}` is truthy in JavaScript, completely bypassing the 5-minute TTL cache.
+
+### Week 8: UI Fluidity & Perceived Performance (The YouTube Loading Bar)
+
+- **Discovered**: Even with instant cache responses and optimized requests, the UI still felt slightly jarring because legacy code used rigid, full-page `<Spinner>` blockers during any route transition or data fetching (`if (loading) return <Spinner>`). This caused "Layout Jitter"—the screen flashing white or emptying out before rendering the new data.
+- **Solution implemented**:
+  1. Removed full-page blocking spinners from all major pages (`Financial`, `Dashboard`, `Clients`, `Contracts`, `Categories`, `Users`).
+  2. Implemented a global `TopProgressBar` component in `App.jsx`.
+  3. Optimized the progress bar to intercept DOM clicks directly before React Router transitions to provide instant tactile visual feedback, finishing its animation exactly when the new page renders.
+- **Results**:
+  - The application layout (Sidebar + Header) remains stable during all network fetches.
+  - Page transitions feel instantaneous on cache hits, with the progress bar simulating a smooth "YouTube-style" navigation.
+  - The perception of speed now matches the actual architectural speed.
+- **Key learning**: True fluidity requires decoupling the UI's layout from data-fetching blockers. Once the backend and cache are fast, the *perception* of speed matters just as much.
+
+### Week 9: Frontend Dropdowns & Backend Pagination Tuning
+
+- **Discovered**: The Categories and Clients dropdowns in the Contracts page were still loading thousands of items simultaneously, causing severe frontend lag despite the backend optimizations. The `react-select` library was continuously re-triggering its `onMenuScrollToBottom` event, creating an infinite scroll loop that immediately fetched all pages. On the backend side, we found that the `/categories` endpoint was entirely missing the `limit` logic constraint in queries.
+- **Frontend fixes**:
+  1. Removed the `isLoading` prop from `AsyncSelect` and `Select` components when managing internal pagination. Passing `isLoading=true` while maintaining existing options inadvertently caused the component to reset scroll position calculations, firing an infinite loop of `offset` requests.
+  2. Implemented strict `URLSearchParams` format for `searchCategories` in `contractsApi.js` to perfectly match the `searchClients` structure, ensuring the `limit=100` string argument was uniformly dispatched.
+- **Backend optimizations**:
+  1. Identified that `handleListCategories` in `categories_handlers.go` accepted a `limit` parameter, but `SearchCategories` in `category_store.go` was not propagating `LIMIT` and `OFFSET` to the SQL query.
+  2. Modified `SearchCategories` to append `LIMIT $N OFFSET $M` dynamically based on parameter values, ensuring the PostgreSQL database itself culls the payload before the application layer parses it.
+- **Results**:
+  - The Categories array response dropped from **2011 to 100** items maximum per network call.
+  - Dropdown rendering freezes inside the Contracts modal and page were completely eliminated.
+- **Key learning**: Sometimes infinite loops aren't logic errors in your code, but side-effects of UI library state changes (like `isLoading` resetting scroll dimensions). Furthermore, backend pagination handlers are useless if the data layer (`store.go`) physically ignores the `limit` variable in its raw SQL synthesis.
+
+### Week 9 (Continued): Schema Cleanup & State Simplification
+
+- **Discovered**: The `Contract` entity had redundant state tracking. We had both `archived_at` and `cancelled_at` columns, leading to bloated `Status()` logic in Go, heavy array filtering in React (`contractHelpers.js`), and user confusion regarding "Delete vs Cancel vs Archive". Furthermore, Categories were still fully pre-loaded on the Contracts page, threatening future performance.
+- **Backend optimizations**:
+  1. Completely removed the `cancelled_at` column from the SQL schema and wiped unused migrations to maintain pristine history.
+  2. Stripped all `cancelled_at` checks from SQL queries inside `contract_store.go`, immediately simplifying query execution plans and composite index usage.
+  3. Removed `CancelContract` and `UncancelContract` endpoints and repository methods, reducing the API footprint.
+- **Frontend fixes**:
+  1. Replaced the heavy `CancelDialog` flow in `Contracts.jsx` with a smart **Delete Action**.
+  2. The new Delete flow checks contract status: if the contract is active or expiring, it intelligently warns the user to "Archive instead of Delete" to preserve financial history.
+  3. Extended the lazy-loading pagination logic to **Categories**. The category dropdown in `Contracts.jsx` and `ContractsModal.jsx` now uses `react-select` connected to `GET /api/categories?search=q&limit=100&offset=x`, eliminating the need to pre-load all categories into browser memory.
+- **Results**:
+  - Removed hundreds of lines of redundant codebase logic across Go and JS.
+  - Eliminated the risk of the browser crashing when 10,000+ categories exist.
+- **Key learning**: Sometimes the best performance optimization is simply deleting unused features. Removing redundant state tracks simplifies both SQL execution plans and React component trees exponentially.
 
 ---
 
