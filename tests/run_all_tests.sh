@@ -33,15 +33,21 @@ LOG_FILE="$SCRIPT_DIR/run_all_tests.log"
 # Redirect all output to log file (and stdout)
 exec > >(tee -a "$LOG_FILE") 2>&1
 
-# Fixed test environment constants (no .env dependency)
-API_URL="http://localhost:63000/api"
-TEST_API_URL="http://localhost:63000/api"
-DB_HOST="localhost"
-DB_PORT="65432"
-DB_USER="test_user"
-DB_PASSWORD="test_password"
-DB_NAME="contracts_test"
-export API_URL TEST_API_URL DB_HOST DB_PORT DB_USER DB_PASSWORD DB_NAME
+# Load .env file if it exists, otherwise warn the user
+if [ -f "$PROJECT_ROOT/tests/.env" ]; then
+    echo -e "${BLUE}ℹ️ Sourcing environment variables from tests/.env${NC}"
+    export $(grep -v '^#' "$PROJECT_ROOT/tests/.env" | xargs)
+else
+    echo -e "${YELLOW}⚠️ No tests/.env file found! Using default variables or system environment vars.${NC}"
+    # Fallback to sensible defaults for local docker
+    export API_URL=${API_URL:-"http://localhost:63000/api"}
+    export TEST_API_URL=${TEST_API_URL:-"http://localhost:63000/api"}
+    export DB_HOST=${DB_HOST:-"localhost"}
+    export DB_PORT=${DB_PORT:-"65432"}
+    export DB_USER=${DB_USER:-"test_user"}
+    export DB_PASSWORD=${DB_PASSWORD:-"test_password"}
+    export DB_NAME=${DB_NAME:-"contracts_test"}
+fi
 
 TEST_COMPOSE_FILE="$PROJECT_ROOT/tests/docker-compose.test.yml"
 

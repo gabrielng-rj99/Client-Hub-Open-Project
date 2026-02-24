@@ -21,6 +21,10 @@ import requests
 import time
 import os
 import itertools
+from dotenv import load_dotenv
+
+# Load environment variables from .env file securely before any tests run
+load_dotenv(override=True)
 
 
 
