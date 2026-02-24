@@ -207,57 +207,89 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	// /api/clients -> /api/clients
 	mux.HandleFunc("/api/clients/", s.standardMiddleware(s.authMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, "/archive") {
-			s.handleClientArchive(w, r)
+			s.requirePermissionAction("clients", "archive", s.handleClientArchive)(w, r)
 		} else if strings.HasSuffix(r.URL.Path, "/unarchive") {
-			s.handleClientUnarchive(w, r)
+			s.requirePermissionAction("clients", "archive", s.handleClientUnarchive)(w, r)
 		} else if strings.Contains(r.URL.Path, "/affiliates") {
-			s.handleClientAffiliates(w, r)
+			s.requirePermissionByMethod("affiliates", map[string]string{
+				http.MethodGet:  "read",
+				http.MethodPost: "create",
+			}, s.handleClientAffiliates)(w, r)
 		} else {
-			s.handleClientByID(w, r)
+			s.requirePermissionByMethod("clients", map[string]string{
+				http.MethodGet:    "read",
+				http.MethodPut:    "update",
+				http.MethodDelete: "delete",
+			}, s.handleClientByID)(w, r)
 		}
 	})))
 	mux.HandleFunc("/api/clients", s.standardMiddleware(s.authMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/clients" {
-			s.handleClients(w, r)
+			s.requirePermissionByMethod("clients", map[string]string{
+				http.MethodGet:  "read",
+				http.MethodPost: "create",
+			}, s.handleClients)(w, r)
 		} else {
 			if strings.HasSuffix(r.URL.Path, "/archive") {
-				s.handleClientArchive(w, r)
+				s.requirePermissionAction("clients", "archive", s.handleClientArchive)(w, r)
 			} else if strings.HasSuffix(r.URL.Path, "/unarchive") {
-				s.handleClientUnarchive(w, r)
+				s.requirePermissionAction("clients", "archive", s.handleClientUnarchive)(w, r)
 			} else if strings.Contains(r.URL.Path, "/affiliates") {
-				s.handleClientAffiliates(w, r)
+				s.requirePermissionByMethod("affiliates", map[string]string{
+					http.MethodGet:  "read",
+					http.MethodPost: "create",
+				}, s.handleClientAffiliates)(w, r)
 			} else {
-				s.handleClientByID(w, r)
+				s.requirePermissionByMethod("clients", map[string]string{
+					http.MethodGet:    "read",
+					http.MethodPut:    "update",
+					http.MethodDelete: "delete",
+				}, s.handleClientByID)(w, r)
 			}
 		}
 	})))
 
 	// Affiliates
 	// /api/affiliates
-	mux.HandleFunc("/api/affiliates/", s.standardMiddleware(s.authMiddleware(s.handleAffiliateByID)))
+	mux.HandleFunc("/api/affiliates/", s.standardMiddleware(s.authMiddleware(s.requirePermissionByMethod("affiliates", map[string]string{
+		http.MethodGet:    "read",
+		http.MethodPut:    "update",
+		http.MethodDelete: "delete",
+	}, s.handleAffiliateByID))))
 
 	// Contracts (Contracts)
 	mux.HandleFunc("/api/contracts/", s.standardMiddleware(s.authMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, "/archive") {
-			s.handleContractArchive(w, r)
+			s.requirePermissionAction("contracts", "archive", s.handleContractArchive)(w, r)
 		} else if strings.HasSuffix(r.URL.Path, "/unarchive") {
-			s.handleContractUnarchive(w, r)
+			s.requirePermissionAction("contracts", "archive", s.handleContractUnarchive)(w, r)
 		} else if strings.HasSuffix(r.URL.Path, "/financial") {
-			s.handleContractFinancial(w, r)
+			s.requirePermissionAction("financial", "read", s.handleContractFinancial)(w, r)
 		} else {
-			s.handleContractByID(w, r)
+			s.requirePermissionByMethod("contracts", map[string]string{
+				http.MethodGet:    "read",
+				http.MethodPut:    "update",
+				http.MethodDelete: "delete",
+			}, s.handleContractByID)(w, r)
 		}
 	})))
 	mux.HandleFunc("/api/contracts", s.standardMiddleware(s.authMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/contracts" {
-			s.handleContracts(w, r)
+			s.requirePermissionByMethod("contracts", map[string]string{
+				http.MethodGet:  "read",
+				http.MethodPost: "create",
+			}, s.handleContracts)(w, r)
 		} else {
 			if strings.HasSuffix(r.URL.Path, "/archive") {
-				s.handleContractArchive(w, r)
+				s.requirePermissionAction("contracts", "archive", s.handleContractArchive)(w, r)
 			} else if strings.HasSuffix(r.URL.Path, "/unarchive") {
-				s.handleContractUnarchive(w, r)
+				s.requirePermissionAction("contracts", "archive", s.handleContractUnarchive)(w, r)
 			} else {
-				s.handleContractByID(w, r)
+				s.requirePermissionByMethod("contracts", map[string]string{
+					http.MethodGet:    "read",
+					http.MethodPut:    "update",
+					http.MethodDelete: "delete",
+				}, s.handleContractByID)(w, r)
 			}
 		}
 	})))
@@ -265,52 +297,91 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	// Categories
 	mux.HandleFunc("/api/categories/", s.standardMiddleware(s.authMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "/subcategories") {
-			s.handleCategorySubcategories(w, r)
+			s.requirePermissionByMethod("subcategories", map[string]string{
+				http.MethodGet:  "read",
+				http.MethodPost: "create",
+			}, s.handleCategorySubcategories)(w, r)
 		} else {
-			s.handleCategoryByID(w, r)
+			s.requirePermissionByMethod("categories", map[string]string{
+				http.MethodGet:    "read",
+				http.MethodPut:    "update",
+				http.MethodDelete: "delete",
+			}, s.handleCategoryByID)(w, r)
 		}
 	})))
 	mux.HandleFunc("/api/categories", s.standardMiddleware(s.authMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/categories" {
-			s.handleCategories(w, r)
+			s.requirePermissionByMethod("categories", map[string]string{
+				http.MethodGet:  "read",
+				http.MethodPost: "create",
+			}, s.handleCategories)(w, r)
 		} else {
 			if strings.Contains(r.URL.Path, "/subcategories") {
-				s.handleCategorySubcategories(w, r)
+				s.requirePermissionByMethod("subcategories", map[string]string{
+					http.MethodGet:  "read",
+					http.MethodPost: "create",
+				}, s.handleCategorySubcategories)(w, r)
 			} else {
-				s.handleCategoryByID(w, r)
+				s.requirePermissionByMethod("categories", map[string]string{
+					http.MethodGet:    "read",
+					http.MethodPut:    "update",
+					http.MethodDelete: "delete",
+				}, s.handleCategoryByID)(w, r)
 			}
 		}
 	})))
 
 	// Subcategories (Lines)
-	mux.HandleFunc("/api/subcategories/", s.standardMiddleware(s.authMiddleware(s.handleSubcategoryByID)))
+	mux.HandleFunc("/api/subcategories/", s.standardMiddleware(s.authMiddleware(s.requirePermissionByMethod("subcategories", map[string]string{
+		http.MethodGet:    "read",
+		http.MethodPut:    "update",
+		http.MethodDelete: "delete",
+	}, s.handleSubcategoryByID))))
 	mux.HandleFunc("/api/subcategories", s.standardMiddleware(s.authMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/subcategories" {
-			s.handleSubcategories(w, r)
+			s.requirePermissionByMethod("subcategories", map[string]string{
+				http.MethodGet:  "read",
+				http.MethodPost: "create",
+			}, s.handleSubcategories)(w, r)
 		} else {
-			s.handleSubcategoryByID(w, r)
+			s.requirePermissionByMethod("subcategories", map[string]string{
+				http.MethodGet:    "read",
+				http.MethodPut:    "update",
+				http.MethodDelete: "delete",
+			}, s.handleSubcategoryByID)(w, r)
 		}
 	})))
 
 	// Dashboard Counts - Aggregated counts endpoint (replaces loading all records for counts)
-	mux.HandleFunc("/api/dashboard/counts", s.standardMiddleware(s.authMiddleware(s.handleDashboardCounts)))
+	mux.HandleFunc("/api/dashboard/counts", s.standardMiddleware(s.authMiddleware(s.requirePermissionAction("dashboard", "read", s.handleDashboardCounts))))
 
 	// Client Counts - Client status breakdown for filter buttons
-	mux.HandleFunc("/api/clients/counts", s.standardMiddleware(s.authMiddleware(s.handleClientCounts)))
+	mux.HandleFunc("/api/clients/counts", s.standardMiddleware(s.authMiddleware(s.requirePermissionAction("clients", "read", s.handleClientCounts))))
 
 	// Financial - Contract financial management
-	mux.HandleFunc("/api/financial/summary", s.standardMiddleware(s.authMiddleware(s.handleFinancialSummary)))
-	mux.HandleFunc("/api/financial/detailed-summary", s.standardMiddleware(s.authMiddleware(s.handleFinancialDetailedSummary)))
-	mux.HandleFunc("/api/financial/upcoming", s.standardMiddleware(s.authMiddleware(s.handleUpcomingFinancial)))
-	mux.HandleFunc("/api/financial/overdue", s.standardMiddleware(s.authMiddleware(s.handleOverdueFinancial)))
+	mux.HandleFunc("/api/financial/summary", s.standardMiddleware(s.authMiddleware(s.requirePermissionAction("financial", "read_values", s.handleFinancialSummary))))
+	mux.HandleFunc("/api/financial/detailed-summary", s.standardMiddleware(s.authMiddleware(s.requirePermissionAction("financial", "read_values", s.handleFinancialDetailedSummary))))
+	mux.HandleFunc("/api/financial/upcoming", s.standardMiddleware(s.authMiddleware(s.requirePermissionAction("financial", "read", s.handleUpcomingFinancial))))
+	mux.HandleFunc("/api/financial/overdue", s.standardMiddleware(s.authMiddleware(s.requirePermissionAction("financial", "read", s.handleOverdueFinancial))))
 	mux.HandleFunc("/api/financial/", s.standardMiddleware(s.authMiddleware(func(w http.ResponseWriter, r *http.Request) {
-		s.handleFinancialByID(w, r)
+		s.requirePermissionByMethod("financial", map[string]string{
+			http.MethodGet:    "read",
+			http.MethodPut:    "update",
+			http.MethodDelete: "delete",
+		}, s.handleFinancialByID)(w, r)
 	})))
 	mux.HandleFunc("/api/financial", s.standardMiddleware(s.authMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/financial" {
-			s.handleFinancial(w, r)
+			s.requirePermissionByMethod("financial", map[string]string{
+				http.MethodGet:  "read",
+				http.MethodPost: "create",
+			}, s.handleFinancial)(w, r)
 		} else {
-			s.handleFinancialByID(w, r)
+			s.requirePermissionByMethod("financial", map[string]string{
+				http.MethodGet:    "read",
+				http.MethodPut:    "update",
+				http.MethodDelete: "delete",
+			}, s.handleFinancialByID)(w, r)
 		}
 	})))
 

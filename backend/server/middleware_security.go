@@ -122,3 +122,64 @@ func (s *Server) securityHeadersMiddleware(next http.HandlerFunc) http.HandlerFu
 		next(w, r)
 	}
 }
+
+// requirePermissionAction restricts access to users with a specific permission
+// Must be used after authMiddleware
+func (s *Server) requirePermissionAction(resource, action string, next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		tokenString := extractTokenFromHeader(r)
+		claims, err := ValidateJWT(tokenString, s.userStore)
+		if err != nil {
+			respondError(w, http.StatusUnauthorized, "Token inválido")
+			return
+		}
+
+		hasPerm, err := s.roleStore.HasPermission(claims.UserID, resource, action)
+		if err != nil {
+			respondError(w, http.StatusInternalServerError, "Erro ao verificar permissões")
+			return
+		}
+
+		if !hasPerm {
+			respondError(w, http.StatusForbidden, "Permissão negada")
+			return
+		}
+
+		next(w, r)
+	}
+}
+
+// requirePermissionByMethod restricts access based on HTTP method mapping to actions
+// methodMap maps HTTP methods to action strings (e.g. map[string]string{http.MethodGet: "read", http.MethodPost: "create"})
+// Must be used after authMiddleware
+func (s *Server) requirePermissionByMethod(resource string, methodMap map[string]string, next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		action, exists := methodMap[r.Method]
+		if !exists {
+			// If method is not restricted or doesn't exist in map, it should either be blocked or allowed
+			// Here we assume it is blocked by default since permission is required
+			respondError(w, http.StatusMethodNotAllowed, "Method requires permission mapping")
+			return
+		}
+
+		tokenString := extractTokenFromHeader(r)
+		claims, err := ValidateJWT(tokenString, s.userStore)
+		if err != nil {
+			respondError(w, http.StatusUnauthorized, "Token inválido")
+			return
+		}
+
+		hasPerm, err := s.roleStore.HasPermission(claims.UserID, resource, action)
+		if err != nil {
+			respondError(w, http.StatusInternalServerError, "Erro ao verificar permissões")
+			return
+		}
+
+		if !hasPerm {
+			respondError(w, http.StatusForbidden, "Permissão negada")
+			return
+		}
+
+		next(w, r)
+	}
+}
