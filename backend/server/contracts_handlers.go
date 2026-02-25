@@ -74,7 +74,7 @@ func (s *Server) handleCreateContract(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	claims, _ := ValidateJWT(extractTokenFromHeader(r), s.userStore)
+	claims, _ := ExtractJWTClaimsUnverified(extractTokenFromHeader(r))
 
 	id, err := s.contractStore.CreateContract(contract)
 	if err != nil {
@@ -194,7 +194,7 @@ func (s *Server) handleUpdateContract(w http.ResponseWriter, r *http.Request, co
 		return
 	}
 
-	claims, _ := ValidateJWT(extractTokenFromHeader(r), s.userStore)
+	claims, _ := ExtractJWTClaimsUnverified(extractTokenFromHeader(r))
 
 	// Get old value for audit
 	oldContract, _ := s.contractStore.GetContractByID(contractID)
@@ -283,7 +283,7 @@ func (s *Server) handleContractArchive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	claims, _ := ValidateJWT(extractTokenFromHeader(r), s.userStore)
+	claims, _ := ExtractJWTClaimsUnverified(extractTokenFromHeader(r))
 
 	// Get old value for audit
 	oldContract, err := s.contractStore.GetContractByID(contractID)
@@ -374,7 +374,7 @@ func (s *Server) handleContractUnarchive(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	claims, _ := ValidateJWT(extractTokenFromHeader(r), s.userStore)
+	claims, _ := ExtractJWTClaimsUnverified(extractTokenFromHeader(r))
 
 	// Get old value for audit
 	oldContract, err := s.contractStore.GetContractByID(contractID)

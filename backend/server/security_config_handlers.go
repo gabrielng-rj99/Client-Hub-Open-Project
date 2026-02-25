@@ -121,7 +121,7 @@ func (s *Server) HandleSecurityConfigRoute(w http.ResponseWriter, r *http.Reques
 func (s *Server) HandleGetSecurityConfig(w http.ResponseWriter, r *http.Request) {
 	// Validate token
 	tokenString := extractTokenFromHeader(r)
-	claims, err := ValidateJWT(tokenString, s.userStore)
+	claims, err := ExtractJWTClaimsUnverified(tokenString)
 	if err != nil {
 		respondError(w, http.StatusUnauthorized, "Token inválido ou expirado")
 		return
@@ -272,7 +272,7 @@ func (s *Server) HandleGetSecurityConfig(w http.ResponseWriter, r *http.Request)
 func (s *Server) HandleUpdateSecurityConfig(w http.ResponseWriter, r *http.Request) {
 	// Validate token
 	tokenString := extractTokenFromHeader(r)
-	claims, err := ValidateJWT(tokenString, s.userStore)
+	claims, err := ExtractJWTClaimsUnverified(tokenString)
 	if err != nil {
 		respondError(w, http.StatusUnauthorized, "Token inválido ou expirado")
 		return
@@ -462,7 +462,7 @@ func (s *Server) HandleGetPasswordPolicy(w http.ResponseWriter, r *http.Request)
 
 	// Validate token (any authenticated user can see password policy)
 	tokenString := extractTokenFromHeader(r)
-	_, err := ValidateJWT(tokenString, s.userStore)
+	_, err := ExtractJWTClaimsUnverified(tokenString)
 	if err != nil {
 		respondError(w, http.StatusUnauthorized, "Token inválido ou expirado")
 		return

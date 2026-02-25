@@ -49,7 +49,7 @@ func (s *Server) HandleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 
 	// Extract user info for audit logging
 	tokenString := extractTokenFromHeader(r)
-	claims, err := ValidateJWT(tokenString, s.userStore)
+	claims, err := ExtractJWTClaimsUnverified(tokenString)
 	if err != nil {
 		respondError(w, http.StatusUnauthorized, "Token inválido ou expirado")
 		return

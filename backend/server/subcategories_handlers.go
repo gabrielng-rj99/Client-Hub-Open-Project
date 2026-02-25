@@ -62,7 +62,7 @@ func (s *Server) handleCreateSubcategory(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	claims, _ := ValidateJWT(extractTokenFromHeader(r), s.userStore)
+	claims, _ := ExtractJWTClaimsUnverified(extractTokenFromHeader(r))
 
 	line := domain.Subcategory{
 		Name:       req.Name,
@@ -200,7 +200,7 @@ func (s *Server) handleUpdateSubcategory(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	claims, _ := ValidateJWT(extractTokenFromHeader(r), s.userStore)
+	claims, _ := ExtractJWTClaimsUnverified(extractTokenFromHeader(r))
 
 	// Get existing line to preserve category_id and for audit
 	existingLine, err := s.subcategoryStore.GetSubcategoryByID(subcategoryID)
@@ -265,7 +265,7 @@ func (s *Server) handleUpdateSubcategory(w http.ResponseWriter, r *http.Request,
 }
 
 func (s *Server) handleDeleteSubcategory(w http.ResponseWriter, r *http.Request, subcategoryID string) {
-	claims, _ := ValidateJWT(extractTokenFromHeader(r), s.userStore)
+	claims, _ := ExtractJWTClaimsUnverified(extractTokenFromHeader(r))
 
 	// Get old value for audit
 	oldLine, _ := s.subcategoryStore.GetSubcategoryByID(subcategoryID)
@@ -317,7 +317,7 @@ func (s *Server) handleDeleteSubcategory(w http.ResponseWriter, r *http.Request,
 }
 
 func (s *Server) handleArchiveSubcategory(w http.ResponseWriter, r *http.Request, subcategoryID string) {
-	claims, _ := ValidateJWT(extractTokenFromHeader(r), s.userStore)
+	claims, _ := ExtractJWTClaimsUnverified(extractTokenFromHeader(r))
 
 	// Get old value for audit
 	oldLine, _ := s.subcategoryStore.GetSubcategoryByID(subcategoryID)
@@ -369,7 +369,7 @@ func (s *Server) handleArchiveSubcategory(w http.ResponseWriter, r *http.Request
 }
 
 func (s *Server) handleUnarchiveSubcategory(w http.ResponseWriter, r *http.Request, subcategoryID string) {
-	claims, _ := ValidateJWT(extractTokenFromHeader(r), s.userStore)
+	claims, _ := ExtractJWTClaimsUnverified(extractTokenFromHeader(r))
 
 	// Get old value for audit
 	oldLine, _ := s.subcategoryStore.GetSubcategoryByID(subcategoryID)

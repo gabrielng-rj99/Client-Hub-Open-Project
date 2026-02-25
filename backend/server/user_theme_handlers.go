@@ -225,7 +225,7 @@ func (s *Server) HandleGetUserTheme(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	claims, err := ValidateJWT(tokenString, s.userStore)
+	claims, err := ExtractJWTClaimsUnverified(tokenString)
 	if err != nil {
 		log.Printf("❌ Invalid token for user theme request: %v", err)
 		respondError(w, http.StatusUnauthorized, "Token inválido ou expirado")
@@ -343,7 +343,7 @@ func (s *Server) HandleUpdateUserTheme(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	claims, err := ValidateJWT(tokenString, s.userStore)
+	claims, err := ExtractJWTClaimsUnverified(tokenString)
 	if err != nil {
 		log.Printf("❌ Invalid token for user theme update: %v", err)
 		respondError(w, http.StatusUnauthorized, "Token inválido ou expirado")
@@ -482,7 +482,7 @@ func (s *Server) HandleGetThemePermissions(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	claims, err := ValidateJWT(tokenString, s.userStore)
+	claims, err := ExtractJWTClaimsUnverified(tokenString)
 	if err != nil {
 		log.Printf("❌ Invalid token for theme permissions request: %v", err)
 		respondError(w, http.StatusUnauthorized, "Token inválido ou expirado")
@@ -539,7 +539,7 @@ func (s *Server) HandleUpdateThemePermissions(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	claims, err := ValidateJWT(tokenString, s.userStore)
+	claims, err := ExtractJWTClaimsUnverified(tokenString)
 	if err != nil {
 		log.Printf("❌ Invalid token for theme permissions update: %v", err)
 		respondError(w, http.StatusUnauthorized, "Token inválido ou expirado")
@@ -653,7 +653,7 @@ func (s *Server) HandleGetGlobalTheme(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	claims, err := ValidateJWT(tokenString, s.userStore)
+	claims, err := ExtractJWTClaimsUnverified(tokenString)
 	if err != nil {
 		respondError(w, http.StatusUnauthorized, "Token inválido ou expirado")
 		return
@@ -704,7 +704,7 @@ func (s *Server) HandleUpdateGlobalTheme(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	claims, err := ValidateJWT(tokenString, s.userStore)
+	claims, err := ExtractJWTClaimsUnverified(tokenString)
 	if err != nil {
 		respondError(w, http.StatusUnauthorized, "Token inválido ou expirado")
 		return
@@ -899,7 +899,7 @@ func (s *Server) HandleGetAllowedThemes(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	_, err := ValidateJWT(tokenString, s.userStore)
+	_, err := ExtractJWTClaimsUnverified(tokenString)
 	if err != nil {
 		respondError(w, http.StatusUnauthorized, "Token inválido ou expirado")
 		return
@@ -942,7 +942,7 @@ func (s *Server) HandleUpdateAllowedThemes(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	claims, err := ValidateJWT(tokenString, s.userStore)
+	claims, err := ExtractJWTClaimsUnverified(tokenString)
 	if err != nil {
 		respondError(w, http.StatusUnauthorized, "Token inválido ou expirado")
 		return
@@ -1061,7 +1061,7 @@ func (s *Server) HandleGetSystemConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	claims, err := ValidateJWT(tokenString, s.userStore)
+	claims, err := ExtractJWTClaimsUnverified(tokenString)
 	if err != nil {
 		respondError(w, http.StatusUnauthorized, "Token inválido ou expirado")
 		return
@@ -1128,7 +1128,7 @@ func (s *Server) HandleUpdateSystemConfig(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	claims, err := ValidateJWT(tokenString, s.userStore)
+	claims, err := ExtractJWTClaimsUnverified(tokenString)
 	if err != nil {
 		respondError(w, http.StatusUnauthorized, "Token inválido ou expirado")
 		return

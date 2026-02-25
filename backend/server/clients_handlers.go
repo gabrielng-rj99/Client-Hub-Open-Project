@@ -184,7 +184,7 @@ func (s *Server) handleCreateClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	claims, _ := ValidateJWT(extractTokenFromHeader(r), s.userStore)
+	claims, _ := ExtractJWTClaimsUnverified(extractTokenFromHeader(r))
 
 	// Status will be auto-calculated by CreateClient based on active contracts
 	// Ignore any status sent from frontend
@@ -304,7 +304,7 @@ func (s *Server) handleDeleteClient(w http.ResponseWriter, r *http.Request, clie
 		return
 	}
 
-	claims, err := ValidateJWT(extractTokenFromHeader(r), s.userStore)
+	claims, err := ExtractJWTClaimsUnverified(extractTokenFromHeader(r))
 	if err != nil {
 		respondError(w, http.StatusUnauthorized, "Token inválido ou expirado")
 		return
@@ -408,7 +408,7 @@ func (s *Server) handleUpdateClient(w http.ResponseWriter, r *http.Request, clie
 		return
 	}
 
-	claims, _ := ValidateJWT(extractTokenFromHeader(r), s.userStore)
+	claims, _ := ExtractJWTClaimsUnverified(extractTokenFromHeader(r))
 
 	// Get existing client for partial update support
 	existingClient, err := s.clientStore.GetClientByID(clientID)
@@ -551,7 +551,7 @@ func (s *Server) handleClientArchive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	claims, _ := ValidateJWT(extractTokenFromHeader(r), s.userStore)
+	claims, _ := ExtractJWTClaimsUnverified(extractTokenFromHeader(r))
 
 	// Get old value for audit
 	oldClient, err := s.clientStore.GetClientByID(clientID)
@@ -632,7 +632,7 @@ func (s *Server) handleClientUnarchive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	claims, _ := ValidateJWT(extractTokenFromHeader(r), s.userStore)
+	claims, _ := ExtractJWTClaimsUnverified(extractTokenFromHeader(r))
 
 	// Get old value for audit
 	oldClient, err := s.clientStore.GetClientByID(clientID)

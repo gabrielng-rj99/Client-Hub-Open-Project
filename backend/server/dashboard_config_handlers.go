@@ -60,7 +60,7 @@ func (s *Server) HandleGetDashboardConfig(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	claims, err := ValidateJWT(tokenString, s.userStore)
+	claims, err := ExtractJWTClaimsUnverified(tokenString)
 	if err != nil {
 		respondError(w, http.StatusUnauthorized, "Token inválido ou expirado")
 		return
@@ -139,7 +139,7 @@ func (s *Server) HandleUpdateDashboardConfig(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	claims, err := ValidateJWT(tokenString, s.userStore)
+	claims, err := ExtractJWTClaimsUnverified(tokenString)
 	if err != nil {
 		respondError(w, http.StatusUnauthorized, "Token inválido ou expirado")
 		return

@@ -136,7 +136,7 @@ func (s *Server) handleCreateCategory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	claims, _ := ValidateJWT(extractTokenFromHeader(r), s.userStore)
+	claims, _ := ExtractJWTClaimsUnverified(extractTokenFromHeader(r))
 
 	category := domain.Category{Name: req.Name}
 
@@ -265,7 +265,7 @@ func (s *Server) handleUpdateCategory(w http.ResponseWriter, r *http.Request, ca
 		return
 	}
 
-	claims, _ := ValidateJWT(extractTokenFromHeader(r), s.userStore)
+	claims, _ := ExtractJWTClaimsUnverified(extractTokenFromHeader(r))
 
 	// Get old value for audit
 	oldCategory, _ := s.categoryStore.GetCategoryByID(categoryID)
@@ -321,7 +321,7 @@ func (s *Server) handleUpdateCategory(w http.ResponseWriter, r *http.Request, ca
 }
 
 func (s *Server) handleDeleteCategory(w http.ResponseWriter, r *http.Request, categoryID string) {
-	claims, _ := ValidateJWT(extractTokenFromHeader(r), s.userStore)
+	claims, _ := ExtractJWTClaimsUnverified(extractTokenFromHeader(r))
 
 	// Get old value for audit
 	oldCategory, _ := s.categoryStore.GetCategoryByID(categoryID)
@@ -418,7 +418,7 @@ func (s *Server) handleCategorySubcategories(w http.ResponseWriter, r *http.Requ
 }
 
 func (s *Server) handleArchiveCategory(w http.ResponseWriter, r *http.Request, categoryID string) {
-	claims, _ := ValidateJWT(extractTokenFromHeader(r), s.userStore)
+	claims, _ := ExtractJWTClaimsUnverified(extractTokenFromHeader(r))
 
 	// Get old value for audit
 	oldCategory, _ := s.categoryStore.GetCategoryByID(categoryID)
@@ -470,7 +470,7 @@ func (s *Server) handleArchiveCategory(w http.ResponseWriter, r *http.Request, c
 }
 
 func (s *Server) handleUnarchiveCategory(w http.ResponseWriter, r *http.Request, categoryID string) {
-	claims, _ := ValidateJWT(extractTokenFromHeader(r), s.userStore)
+	claims, _ := ExtractJWTClaimsUnverified(extractTokenFromHeader(r))
 
 	// Get old value for audit
 	oldCategory, _ := s.categoryStore.GetCategoryByID(categoryID)

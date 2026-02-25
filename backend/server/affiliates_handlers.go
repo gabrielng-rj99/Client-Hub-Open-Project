@@ -78,7 +78,7 @@ func (s *Server) handleCreateAffiliate(w http.ResponseWriter, r *http.Request, c
 		return
 	}
 
-	claims, _ := ValidateJWT(extractTokenFromHeader(r), s.userStore)
+	claims, _ := ExtractJWTClaimsUnverified(extractTokenFromHeader(r))
 
 	affiliate.ClientID = clientID
 	affiliate.Status = "ativo"
@@ -160,7 +160,7 @@ func (s *Server) handleUpdateAffiliate(w http.ResponseWriter, r *http.Request, a
 		return
 	}
 
-	claims, _ := ValidateJWT(extractTokenFromHeader(r), s.userStore)
+	claims, _ := ExtractJWTClaimsUnverified(extractTokenFromHeader(r))
 
 	// Get old value for audit
 	oldAffiliate, _ := s.affiliateStore.GetAffiliateByID(affiliateID)
@@ -221,7 +221,7 @@ func (s *Server) handleUpdateAffiliate(w http.ResponseWriter, r *http.Request, a
 }
 
 func (s *Server) handleDeleteAffiliate(w http.ResponseWriter, r *http.Request, affiliateID string) {
-	claims, _ := ValidateJWT(extractTokenFromHeader(r), s.userStore)
+	claims, _ := ExtractJWTClaimsUnverified(extractTokenFromHeader(r))
 
 	// Get old value for audit
 	oldAffiliate, _ := s.affiliateStore.GetAffiliateByID(affiliateID)

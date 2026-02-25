@@ -143,7 +143,7 @@ func (s *Server) handleCreateFinancial(w http.ResponseWriter, r *http.Request) {
 		IsActive:       true,
 	}
 
-	claims, _ := ValidateJWT(extractTokenFromHeader(r), s.userStore)
+	claims, _ := ExtractJWTClaimsUnverified(extractTokenFromHeader(r))
 
 	id, err := s.financialStore.CreateContractFinancial(financial)
 	if err != nil {
@@ -277,7 +277,7 @@ func (s *Server) handleUpdateFinancial(w http.ResponseWriter, r *http.Request, f
 		return
 	}
 
-	claims, _ := ValidateJWT(extractTokenFromHeader(r), s.userStore)
+	claims, _ := ExtractJWTClaimsUnverified(extractTokenFromHeader(r))
 
 	// Get old value for audit
 	oldFinancial, err := s.financialStore.GetContractFinancialByID(financialID)
@@ -381,7 +381,7 @@ func (s *Server) handleDeleteFinancial(w http.ResponseWriter, r *http.Request, f
 		return
 	}
 
-	claims, _ := ValidateJWT(extractTokenFromHeader(r), s.userStore)
+	claims, _ := ExtractJWTClaimsUnverified(extractTokenFromHeader(r))
 
 	// Get old value for audit
 	oldFinancial, _ := s.financialStore.GetContractFinancialByID(financialID)
