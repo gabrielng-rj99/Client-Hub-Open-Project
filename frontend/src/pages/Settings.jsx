@@ -34,7 +34,7 @@ const GenderSelect = ({ section, fieldKey, value, onChange }) => (
     </select>
 );
 
-export default function Settings({ token, apiUrl }) {
+export default function Settings({ token, apiUrl, user }) {
     const { config, updateSettings } = useConfig();
 
     const [formData, setFormData] = useState(config);
@@ -61,10 +61,9 @@ export default function Settings({ token, apiUrl }) {
     // Active section tab
     const [activeSection, setActiveSection] = useState("branding");
 
-    // Get user role from localStorage
-    const userRole = localStorage.getItem("userRole") || "user";
-    const isRoot = userRole === "root";
-    const isAdmin = userRole === "admin" || isRoot;
+    const canManageDashboard = user?.resources?.['settings']?.includes('update') || user?.role === 'root';
+    const canManageSecurity = user?.resources?.['settings']?.includes('manage_security') || user?.role === 'root';
+    const canManageRoles = user?.resources?.['roles']?.includes('read') || user?.role === 'root';
 
     // Sync form data when config loads (if loaded after mount)
     useEffect(() => {
@@ -328,7 +327,7 @@ export default function Settings({ token, apiUrl }) {
                 >
                     🏷️ Rótulos
                 </button>
-                {isAdmin && (
+                {canManageDashboard && (
                     <button
                         className={`settings-main-tab ${activeSection === "dashboard" ? "active" : ""}`}
                         onClick={() => setActiveSection("dashboard")}
@@ -336,26 +335,26 @@ export default function Settings({ token, apiUrl }) {
                         📊 Dashboard
                     </button>
                 )}
-                {isRoot && (
-                    <>
-                        <button
-                            className={`settings-main-tab ${activeSection === "security" ? "active" : ""}`}
-                            onClick={() => setActiveSection("security")}
-                        >
-                            🔒 Segurança
-                        </button>
-                        <button
-                            className={`settings-main-tab ${activeSection === "roles" ? "active" : ""}`}
-                            onClick={() => setActiveSection("roles")}
-                        >
-                            👥 Papéis e Permissões
-                        </button>
-                    </>
+                {canManageSecurity && (
+                    <button
+                        className={`settings-main-tab ${activeSection === "security" ? "active" : ""}`}
+                        onClick={() => setActiveSection("security")}
+                    >
+                        🔒 Segurança
+                    </button>
+                )}
+                {canManageRoles && (
+                    <button
+                        className={`settings-main-tab ${activeSection === "roles" ? "active" : ""}`}
+                        onClick={() => setActiveSection("roles")}
+                    >
+                        👥 Papéis e Permissões
+                    </button>
                 )}
             </div>
 
             {/* Dashboard Settings Section */}
-            {activeSection === "dashboard" && isAdmin && (
+            {activeSection === "dashboard" && canManageDashboard && (
                 <form
                     onSubmit={(e) => e.preventDefault()}
                     className="settings-form"
@@ -657,9 +656,9 @@ export default function Settings({ token, apiUrl }) {
                                     type="checkbox"
                                     checked={
                                         formData.branding?.useCustomLogo ===
-                                            true ||
+                                        true ||
                                         formData.branding?.useCustomLogo ===
-                                            "true"
+                                        "true"
                                     }
                                     onChange={(e) =>
                                         handleChange(
@@ -679,120 +678,120 @@ export default function Settings({ token, apiUrl }) {
 
                         {(formData.branding?.useCustomLogo === true ||
                             formData.branding?.useCustomLogo === "true") && (
-                            <>
-                                <div className="form-group">
-                                    <label>
-                                        Logo Horizontal (Barra Lateral Aberta)
-                                    </label>
-                                    <p className="form-hint">
-                                        Tamanho recomendado: 230x60 pixels
-                                    </p>
-                                    <div className="image-upload-container">
-                                        {formData.branding?.logoWideUrl && (
-                                            <img
-                                                src={
-                                                    formData.branding
-                                                        .logoWideUrl
-                                                }
-                                                alt="Logo Wide Preview"
-                                                className="logo-preview wide"
-                                            />
-                                        )}
-                                        <div className="upload-controls">
-                                            <input
-                                                type="text"
-                                                placeholder="URL da imagem ou upload"
-                                                value={
-                                                    formData.branding
-                                                        ?.logoWideUrl || ""
-                                                }
-                                                onChange={(e) =>
-                                                    handleChange(
-                                                        "branding",
-                                                        "logoWideUrl",
-                                                        e.target.value,
-                                                    )
-                                                }
-                                                onKeyDown={(e) =>
-                                                    handleKeyDown(
-                                                        e,
-                                                        handleSaveBranding,
-                                                    )
-                                                }
-                                            />
-                                            <input
-                                                type="file"
-                                                accept="image/*,.svg"
-                                                onChange={(e) =>
-                                                    handleFileUpload(
-                                                        e,
-                                                        "branding",
-                                                        "logoWideUrl",
-                                                    )
-                                                }
-                                                className="file-input"
-                                            />
+                                <>
+                                    <div className="form-group">
+                                        <label>
+                                            Logo Horizontal (Barra Lateral Aberta)
+                                        </label>
+                                        <p className="form-hint">
+                                            Tamanho recomendado: 230x60 pixels
+                                        </p>
+                                        <div className="image-upload-container">
+                                            {formData.branding?.logoWideUrl && (
+                                                <img
+                                                    src={
+                                                        formData.branding
+                                                            .logoWideUrl
+                                                    }
+                                                    alt="Logo Wide Preview"
+                                                    className="logo-preview wide"
+                                                />
+                                            )}
+                                            <div className="upload-controls">
+                                                <input
+                                                    type="text"
+                                                    placeholder="URL da imagem ou upload"
+                                                    value={
+                                                        formData.branding
+                                                            ?.logoWideUrl || ""
+                                                    }
+                                                    onChange={(e) =>
+                                                        handleChange(
+                                                            "branding",
+                                                            "logoWideUrl",
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                    onKeyDown={(e) =>
+                                                        handleKeyDown(
+                                                            e,
+                                                            handleSaveBranding,
+                                                        )
+                                                    }
+                                                />
+                                                <input
+                                                    type="file"
+                                                    accept="image/*,.svg"
+                                                    onChange={(e) =>
+                                                        handleFileUpload(
+                                                            e,
+                                                            "branding",
+                                                            "logoWideUrl",
+                                                        )
+                                                    }
+                                                    className="file-input"
+                                                />
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                                <div className="form-group">
-                                    <label>
-                                        Ícone Quadrado (Barra Lateral
-                                        Minimizada)
-                                    </label>
-                                    <p className="form-hint">
-                                        Tamanho recomendado: 50x60 pixels
-                                    </p>
-                                    <div className="image-upload-container">
-                                        {formData.branding?.logoSquareUrl && (
-                                            <img
-                                                src={
-                                                    formData.branding
-                                                        .logoSquareUrl
-                                                }
-                                                alt="Icon Square Preview"
-                                                className="logo-preview square"
-                                            />
-                                        )}
-                                        <div className="upload-controls">
-                                            <input
-                                                type="text"
-                                                placeholder="URL da imagem ou upload"
-                                                value={
-                                                    formData.branding
-                                                        ?.logoSquareUrl || ""
-                                                }
-                                                onChange={(e) =>
-                                                    handleChange(
-                                                        "branding",
-                                                        "logoSquareUrl",
-                                                        e.target.value,
-                                                    )
-                                                }
-                                                onKeyDown={(e) =>
-                                                    handleKeyDown(
-                                                        e,
-                                                        handleSaveBranding,
-                                                    )
-                                                }
-                                            />
-                                            <input
-                                                type="file"
-                                                accept="image/*,.svg"
-                                                onChange={(e) =>
-                                                    handleFileUpload(
-                                                        e,
-                                                        "branding",
-                                                        "logoSquareUrl",
-                                                    )
-                                                }
-                                                className="file-input"
-                                            />
+                                    <div className="form-group">
+                                        <label>
+                                            Ícone Quadrado (Barra Lateral
+                                            Minimizada)
+                                        </label>
+                                        <p className="form-hint">
+                                            Tamanho recomendado: 50x60 pixels
+                                        </p>
+                                        <div className="image-upload-container">
+                                            {formData.branding?.logoSquareUrl && (
+                                                <img
+                                                    src={
+                                                        formData.branding
+                                                            .logoSquareUrl
+                                                    }
+                                                    alt="Icon Square Preview"
+                                                    className="logo-preview square"
+                                                />
+                                            )}
+                                            <div className="upload-controls">
+                                                <input
+                                                    type="text"
+                                                    placeholder="URL da imagem ou upload"
+                                                    value={
+                                                        formData.branding
+                                                            ?.logoSquareUrl || ""
+                                                    }
+                                                    onChange={(e) =>
+                                                        handleChange(
+                                                            "branding",
+                                                            "logoSquareUrl",
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                    onKeyDown={(e) =>
+                                                        handleKeyDown(
+                                                            e,
+                                                            handleSaveBranding,
+                                                        )
+                                                    }
+                                                />
+                                                <input
+                                                    type="file"
+                                                    accept="image/*,.svg"
+                                                    onChange={(e) =>
+                                                        handleFileUpload(
+                                                            e,
+                                                            "branding",
+                                                            "logoSquareUrl",
+                                                        )
+                                                    }
+                                                    className="file-input"
+                                                />
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            </>
-                        )}
+                                </>
+                            )}
                         <div className="settings-actions">
                             <button
                                 type="button"
@@ -902,7 +901,7 @@ export default function Settings({ token, apiUrl }) {
                                             fieldKey={item.genderKey}
                                             value={
                                                 formData.labels?.[
-                                                    item.genderKey
+                                                item.genderKey
                                                 ] || "M"
                                             }
                                             onChange={handleChange}
@@ -936,7 +935,7 @@ export default function Settings({ token, apiUrl }) {
                                             type="text"
                                             value={
                                                 formData.labels?.[
-                                                    item.pluralKey
+                                                item.pluralKey
                                                 ] || ""
                                             }
                                             onChange={(e) =>

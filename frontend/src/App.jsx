@@ -149,6 +149,22 @@ function App() {
                 setToken(savedToken);
                 setRefreshToken(savedRefreshToken);
                 setUser(JSON.parse(savedUser));
+
+                // Fetch fresh permissions to ensure they are up to date
+                fetch(`${API_URL}/user/permissions`, {
+                    headers: { "Authorization": `Bearer ${savedToken}` }
+                })
+                    .then(res => res.ok ? res.json() : null)
+                    .then(permsData => {
+                        if (permsData) {
+                            const parsedUser = JSON.parse(savedUser);
+                            parsedUser.permissions = permsData.permissions || {};
+                            parsedUser.resources = permsData.resources || {};
+                            setUser(parsedUser);
+                            localStorage.setItem("user", JSON.stringify(parsedUser));
+                        }
+                    })
+                    .catch(err => console.error("Failed to fetch fresh permissions:", err));
             }
         } catch (error) {
             console.error("Error loading session:", error);
@@ -229,7 +245,22 @@ function App() {
                 id: data.data.user_id,
                 username: data.data.username,
                 role: data.data.role,
+                permissions: {},
+                resources: {},
             };
+
+            try {
+                const permsResponse = await fetch(`${API_URL}/user/permissions`, {
+                    headers: { "Authorization": `Bearer ${data.data.token}` }
+                });
+                if (permsResponse.ok) {
+                    const permsData = await permsResponse.json();
+                    userData.permissions = permsData.permissions || {};
+                    userData.resources = permsData.resources || {};
+                }
+            } catch (permError) {
+                console.error("Failed to fetch permissions during login:", permError);
+            }
 
             setToken(data.data.token);
             setRefreshToken(data.data.refresh_token);
@@ -436,7 +467,7 @@ function App() {
                     />
                     <Route
                         path="/settings"
-                        element={<Settings token={token} apiUrl={API_URL} />}
+                        element={<Settings token={token} apiUrl={API_URL} user={user} />}
                     />
                     <Route
                         path="/appearance"

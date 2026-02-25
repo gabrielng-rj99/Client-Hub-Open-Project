@@ -197,11 +197,11 @@ export default function AuditLogs({ token, apiUrl, user, onTokenExpired }) {
         }
     };
 
-    if (!user || user.role !== "root") {
+    if (!user || !user?.resources?.['audit_logs']?.includes('read')) {
         return (
             <div className="audit-logs-access-denied">
                 <div className="audit-logs-access-denied-text">
-                    Acesso negado. Apenas root pode acessar logs de auditoria.
+                    Acesso negado. Você não tem permissão para acessar logs de auditoria.
                 </div>
             </div>
         );
@@ -214,9 +214,8 @@ export default function AuditLogs({ token, apiUrl, user, onTokenExpired }) {
                 <div className="button-group">
                     <PrimaryButton
                         onClick={handleExport}
-                        style={{
-                            minWidth: "160px",
-                        }}
+                        style={{ minWidth: "160px" }}
+                        disabled={!user?.resources?.['audit_logs']?.includes('export')}
                     >
                         📥 Exportar JSON
                     </PrimaryButton>

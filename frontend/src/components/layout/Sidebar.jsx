@@ -144,7 +144,7 @@ const Sidebar = ({ sidebarCollapsed, toggleSidebar, user, logout }) => {
                     <span className="app-nav-text">Financeiro</span>
                 </button>
 
-                {(user.role === "admin" || user.role === "root") && (
+                {user?.resources?.['users']?.includes('read') && (
                     <button
                         onClick={() => navigate("/users")}
                         data-navigate={true}
@@ -160,7 +160,7 @@ const Sidebar = ({ sidebarCollapsed, toggleSidebar, user, logout }) => {
                     </button>
                 )}
 
-                {user.role === "root" && (
+                {user?.resources?.['audit_logs']?.includes('read') && (
                     <button
                         onClick={() => navigate("/audit-logs")}
                         data-navigate={true}
@@ -186,7 +186,7 @@ const Sidebar = ({ sidebarCollapsed, toggleSidebar, user, logout }) => {
                     <span className="app-nav-text">Aparência</span>
                 </button>
 
-                {(user.role === "admin" || user.role === "root") && (
+                {user?.resources?.['settings']?.includes('read') && (
                     <button
                         onClick={() => navigate("/settings")}
                         data-navigate={true}

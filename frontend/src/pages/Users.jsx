@@ -284,21 +284,19 @@ export default function Users({
                     👤 {config.labels.users || "Usuários"}
                 </h1>
                 <div className="button-group">
-                    {["admin", "root"].includes(user.role) && (
-                        <>
-                            <PrimaryButton
-                                onClick={() =>
-                                    navigate("/settings?section=roles")
-                                }
-                                style={{ minWidth: "auto" }}
-                                title="Gerenciar papéis e permissões"
-                            >
-                                👨‍💼 Papéis & Permissões
-                            </PrimaryButton>
-                            <PrimaryButton onClick={openCreateModal}>
-                                + {g.new} {config.labels.user || "Usuário"}
-                            </PrimaryButton>
-                        </>
+                    {user?.resources?.['roles']?.includes('read') && (
+                        <PrimaryButton
+                            onClick={() => navigate("/settings?section=roles")}
+                            style={{ minWidth: "auto" }}
+                            title="Gerenciar papéis e permissões"
+                        >
+                            👨‍💼 Papéis & Permissões
+                        </PrimaryButton>
+                    )}
+                    {user?.resources?.['users']?.includes('create') && (
+                        <PrimaryButton onClick={openCreateModal}>
+                            + {g.new} {config.labels.user || "Usuário"}
+                        </PrimaryButton>
                     )}
                 </div>
             </div>

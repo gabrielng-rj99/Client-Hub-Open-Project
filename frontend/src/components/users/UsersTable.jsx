@@ -145,13 +145,12 @@ export default function UsersTable({
                             </td>
                             <td>
                                 <span
-                                    className={`users-table-role ${
-                                        user.role === "root"
+                                    className={`users-table-role ${user.role === "root"
                                             ? "root"
                                             : user.role === "admin"
-                                              ? "admin"
-                                              : "user"
-                                    }`}
+                                                ? "admin"
+                                                : "user"
+                                        }`}
                                 >
                                     {getRoleName(user.role)}
                                 </span>
@@ -161,77 +160,83 @@ export default function UsersTable({
                             </td>
                             <td className="actions">
                                 <div className="users-table-actions">
-                                    <button
-                                        onClick={() => onEdit(user)}
-                                        className="users-table-icon-button"
-                                        title="Editar"
-                                    >
-                                        <img
-                                            src={EditIcon}
-                                            alt="Editar"
-                                            style={{
-                                                width: "22px",
-                                                height: "22px",
-                                                filter: "invert(44%) sepia(92%) saturate(1092%) hue-rotate(182deg) brightness(95%) contrast(88%)",
-                                            }}
-                                        />
-                                    </button>
+                                    {currentUser?.resources?.['users']?.includes('update') && (
+                                        <button
+                                            onClick={() => onEdit(user)}
+                                            className="users-table-icon-button"
+                                            title="Editar"
+                                        >
+                                            <img
+                                                src={EditIcon}
+                                                alt="Editar"
+                                                style={{
+                                                    width: "22px",
+                                                    height: "22px",
+                                                    filter: "invert(44%) sepia(92%) saturate(1092%) hue-rotate(182deg) brightness(95%) contrast(88%)",
+                                                }}
+                                            />
+                                        </button>
+                                    )}
                                     {!isCurrentUser && (
                                         <>
-                                            {isBlocked ? (
+                                            {currentUser?.resources?.['users']?.includes('block') && (
+                                                isBlocked ? (
+                                                    <button
+                                                        onClick={() =>
+                                                            onUnlock(user.username)
+                                                        }
+                                                        className="users-table-icon-button"
+                                                        title="Desbloquear"
+                                                    >
+                                                        <img
+                                                            src={UnlockIcon}
+                                                            alt="Desbloquear"
+                                                            style={{
+                                                                width: "22px",
+                                                                height: "22px",
+                                                                filter: "invert(62%) sepia(34%) saturate(760%) hue-rotate(88deg) brightness(93%) contrast(81%)",
+                                                            }}
+                                                        />
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        onClick={() =>
+                                                            onBlock(user.username)
+                                                        }
+                                                        className="users-table-icon-button"
+                                                        title="Bloquear"
+                                                    >
+                                                        <img
+                                                            src={LockIcon}
+                                                            alt="Bloquear"
+                                                            style={{
+                                                                width: "22px",
+                                                                height: "22px",
+                                                                filter: "invert(57%) sepia(74%) saturate(449%) hue-rotate(359deg) brightness(96%) contrast(89%)",
+                                                            }}
+                                                        />
+                                                    </button>
+                                                )
+                                            )}
+                                            {currentUser?.resources?.['users']?.includes('delete') && (
                                                 <button
                                                     onClick={() =>
-                                                        onUnlock(user.username)
+                                                        onDelete(user.username)
                                                     }
                                                     className="users-table-icon-button"
-                                                    title="Desbloquear"
+                                                    title="Deletar"
                                                 >
                                                     <img
-                                                        src={UnlockIcon}
-                                                        alt="Desbloquear"
+                                                        src={TrashIcon}
+                                                        alt="Deletar"
                                                         style={{
                                                             width: "22px",
                                                             height: "22px",
-                                                            filter: "invert(62%) sepia(34%) saturate(760%) hue-rotate(88deg) brightness(93%) contrast(81%)",
-                                                        }}
-                                                    />
-                                                </button>
-                                            ) : (
-                                                <button
-                                                    onClick={() =>
-                                                        onBlock(user.username)
-                                                    }
-                                                    className="users-table-icon-button"
-                                                    title="Bloquear"
-                                                >
-                                                    <img
-                                                        src={LockIcon}
-                                                        alt="Bloquear"
-                                                        style={{
-                                                            width: "22px",
-                                                            height: "22px",
-                                                            filter: "invert(57%) sepia(74%) saturate(449%) hue-rotate(359deg) brightness(96%) contrast(89%)",
+                                                            filter: "invert(37%) sepia(93%) saturate(1447%) hue-rotate(342deg) brightness(94%) contrast(88%)",
                                                         }}
                                                     />
                                                 </button>
                                             )}
-                                            <button
-                                                onClick={() =>
-                                                    onDelete(user.username)
-                                                }
-                                                className="users-table-icon-button"
-                                                title="Deletar"
-                                            >
-                                                <img
-                                                    src={TrashIcon}
-                                                    alt="Deletar"
-                                                    style={{
-                                                        width: "22px",
-                                                        height: "22px",
-                                                        filter: "invert(37%) sepia(93%) saturate(1447%) hue-rotate(342deg) brightness(94%) contrast(88%)",
-                                                    }}
-                                                />
-                                            </button>
                                         </>
                                     )}
                                 </div>
