@@ -960,13 +960,13 @@ export default function Settings({ token, apiUrl, user }) {
                 </form>
             )}
 
-            {/* Security Section (Root Only) */}
-            {activeSection === "security" && isRoot && (
+            {/* Security Section */}
+            {activeSection === "security" && canManageSecurity && (
                 <SecuritySettings token={token} apiUrl={apiUrl} />
             )}
 
-            {/* Roles & Permissions Section (Root Only) */}
-            {activeSection === "roles" && isRoot && (
+            {/* Roles & Permissions Section */}
+            {activeSection === "roles" && canManageRoles && (
                 <RolesPermissions token={token} apiUrl={apiUrl} />
             )}
         </div>
