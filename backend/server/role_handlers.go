@@ -159,7 +159,7 @@ func (s *Server) HandleGetRoles(w http.ResponseWriter, r *http.Request) {
 
 	// Validate token and check permissions
 	tokenString := extractTokenFromHeader(r)
-	claims, err := ValidateJWT(tokenString, s.userStore)
+	claims, err := ExtractJWTClaimsUnverified(tokenString)
 	if err != nil {
 		respondError(w, http.StatusUnauthorized, "Token inválido ou expirado")
 		return
@@ -254,7 +254,7 @@ func (s *Server) HandleGetRoleByID(w http.ResponseWriter, r *http.Request, roleI
 	}
 	// Validate token and check permissions
 	tokenString := extractTokenFromHeader(r)
-	claims, err := ValidateJWT(tokenString, s.userStore)
+	claims, err := ExtractJWTClaimsUnverified(tokenString)
 	if err != nil {
 		respondError(w, http.StatusUnauthorized, "Token inválido ou expirado")
 		return
@@ -339,7 +339,7 @@ func (s *Server) HandleCreateRole(w http.ResponseWriter, r *http.Request) {
 
 	// Validate token and check permissions
 	tokenString := extractTokenFromHeader(r)
-	claims, err := ValidateJWT(tokenString, s.userStore)
+	claims, err := ExtractJWTClaimsUnverified(tokenString)
 	if err != nil {
 		respondError(w, http.StatusUnauthorized, "Token inválido ou expirado")
 		return
@@ -430,7 +430,7 @@ func (s *Server) HandleUpdateRole(w http.ResponseWriter, r *http.Request, roleID
 	}
 	// Validate token and check permissions
 	tokenString := extractTokenFromHeader(r)
-	claims, err := ValidateJWT(tokenString, s.userStore)
+	claims, err := ExtractJWTClaimsUnverified(tokenString)
 	if err != nil {
 		respondError(w, http.StatusUnauthorized, "Token inválido ou expirado")
 		return
@@ -533,7 +533,7 @@ func (s *Server) HandleDeleteRole(w http.ResponseWriter, r *http.Request, roleID
 	}
 	// Validate token and check permissions
 	tokenString := extractTokenFromHeader(r)
-	claims, err := ValidateJWT(tokenString, s.userStore)
+	claims, err := ExtractJWTClaimsUnverified(tokenString)
 	if err != nil {
 		respondError(w, http.StatusUnauthorized, "Token inválido ou expirado")
 		return
@@ -619,7 +619,7 @@ func (s *Server) HandlePermissionsRoute(w http.ResponseWriter, r *http.Request) 
 func (s *Server) HandleGetPermissions(w http.ResponseWriter, r *http.Request) {
 	// Validate token
 	tokenString := extractTokenFromHeader(r)
-	claims, err := ValidateJWT(tokenString, s.userStore)
+	claims, err := ExtractJWTClaimsUnverified(tokenString)
 	if err != nil {
 		respondError(w, http.StatusUnauthorized, "Token inválido ou expirado")
 		return
@@ -697,7 +697,7 @@ func (s *Server) HandleGetRolePermissions(w http.ResponseWriter, r *http.Request
 	}
 	// Validate token
 	tokenString := extractTokenFromHeader(r)
-	claims, err := ValidateJWT(tokenString, s.userStore)
+	claims, err := ExtractJWTClaimsUnverified(tokenString)
 	if err != nil {
 		respondError(w, http.StatusUnauthorized, "Token inválido ou expirado")
 		return
@@ -747,7 +747,7 @@ func (s *Server) HandleSetRolePermissions(w http.ResponseWriter, r *http.Request
 	}
 	// Validate token
 	tokenString := extractTokenFromHeader(r)
-	claims, err := ValidateJWT(tokenString, s.userStore)
+	claims, err := ExtractJWTClaimsUnverified(tokenString)
 	if err != nil {
 		respondError(w, http.StatusUnauthorized, "Token inválido ou expirado")
 		return
@@ -879,7 +879,7 @@ func (s *Server) HandleUserPermissionsRoute(w http.ResponseWriter, r *http.Reque
 func (s *Server) HandleGetCurrentUserPermissions(w http.ResponseWriter, r *http.Request) {
 	// Validate token
 	tokenString := extractTokenFromHeader(r)
-	claims, err := ValidateJWT(tokenString, s.userStore)
+	claims, err := ExtractJWTClaimsUnverified(tokenString)
 	if err != nil {
 		respondError(w, http.StatusUnauthorized, "Token inválido ou expirado")
 		return
@@ -910,7 +910,7 @@ func (s *Server) HandleCheckPermission(w http.ResponseWriter, r *http.Request) {
 
 	// Validate token
 	tokenString := extractTokenFromHeader(r)
-	claims, err := ValidateJWT(tokenString, s.userStore)
+	claims, err := ExtractJWTClaimsUnverified(tokenString)
 	if err != nil {
 		respondError(w, http.StatusUnauthorized, "Token inválido ou expirado")
 		return

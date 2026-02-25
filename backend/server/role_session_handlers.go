@@ -67,7 +67,7 @@ func (s *Server) HandleRoleSessionPoliciesRoute(w http.ResponseWriter, r *http.R
 
 	// Validate token - Root only
 	tokenString := extractTokenFromHeader(r)
-	claims, err := ValidateJWT(tokenString, s.userStore)
+	claims, err := ExtractJWTClaimsUnverified(tokenString)
 	if err != nil {
 		respondError(w, http.StatusUnauthorized, "Token inválido ou expirado")
 		return
@@ -101,7 +101,7 @@ func (s *Server) HandleRoleSessionPolicyByIDRoute(w http.ResponseWriter, r *http
 
 	// Validate token - Root only
 	tokenString := extractTokenFromHeader(r)
-	claims, err := ValidateJWT(tokenString, s.userStore)
+	claims, err := ExtractJWTClaimsUnverified(tokenString)
 	if err != nil {
 		respondError(w, http.StatusUnauthorized, "Token inválido ou expirado")
 		return
@@ -280,7 +280,7 @@ func (s *Server) HandleUpdateRoleSessionPolicy(w http.ResponseWriter, r *http.Re
 
 	// Get claims for audit
 	tokenString := extractTokenFromHeader(r)
-	claims, _ := ValidateJWT(tokenString, s.userStore)
+	claims, _ := ExtractJWTClaimsUnverified(tokenString)
 
 	// Check if role exists
 	var roleName string

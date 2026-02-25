@@ -167,7 +167,7 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 
 	// Extract user info from JWT (already validated by authMiddleware)
 	tokenString := extractTokenFromHeader(r)
-	claims, err := ValidateJWT(tokenString, s.userStore)
+	claims, err := ExtractJWTClaimsUnverified(tokenString)
 	if err != nil {
 		// Token invalid — still respond OK (user is logging out regardless)
 		respondJSON(w, http.StatusOK, SuccessResponse{Message: "Logged out"})
