@@ -156,49 +156,46 @@ func ValidateRefreshToken(tokenString string, userStore *store.UserStore) (*Refr
 	return claims, nil
 }
 
-// Valida o JWT e retorna as claims se válido
-func ValidateJWT(tokenString string, userStore *store.UserStore) (*JWTClaims, error) {
-	// Primeiro, parse o token sem validar assinatura para extrair o user_id
-	token, err := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
-		claims, ok := token.Claims.(*JWTClaims)
-		if !ok {
-			return nil, errors.New("formato de claims inválido")
-		}
-		// Buscar usuário no banco
-		user, err := userStore.GetUserByID(claims.UserID)
-		if err != nil || user == nil || user.AuthSecret == "" {
-			return nil, errors.New("usuário não encontrado ou auth_secret ausente")
-		}
-		return getUserSigningKey(user)
-	})
-
+// Extrai o JWT sem validar a assinatura para podermos ler o UUID antes de ir no banco
+func ExtractJWTClaimsUnverified(tokenString string) (*JWTClaims, error) {
+	token, _, err := new(jwt.Parser).ParseUnverified(tokenString, &JWTClaims{})
 	if err != nil {
-		return nil, fmt.Errorf("token inválido: %w", err)
+		return nil, fmt.Errorf("formato de token inválido: %w", err)
 	}
 
 	claims, ok := token.Claims.(*JWTClaims)
-	if !ok || !token.Valid {
+	if !ok {
+		return nil, errors.New("formato de claims inválido")
+	}
+
+	return claims, nil
+}
+
+// Valida o JWT matematicamente contra um secret_secret em memória sem fazer novas consultas no BD
+func ValidateJWTSignature(tokenString string, authSecret string) (*JWTClaims, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
+		cfg := config.GetConfig()
+		signingKey := append([]byte(cfg.JWT.SecretKey), []byte(authSecret)...)
+		return signingKey, nil
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("assinatura do token inválida: %w", err)
+	}
+
+	if !token.Valid {
 		return nil, errors.New("token inválido ou expirado")
 	}
 
 	// SECURITY: Reject refresh tokens - access tokens should not have token_type claim
-	// If token_type is present, this is likely a refresh token and should be rejected
-	if claims.TokenType != "" {
-		return nil, errors.New("token fornecido não é um access token válido")
+	if claims, ok := token.Claims.(*JWTClaims); ok {
+		if claims.TokenType != "" {
+			return nil, errors.New("token fornecido não é um access token válido")
+		}
+		return claims, nil
 	}
 
-	// SECURITY: Check if user is blocked - even with valid token
-	user, err := userStore.GetUserByID(claims.UserID)
-	if err != nil || user == nil {
-		return nil, errors.New("usuário não encontrado")
-	}
-
-	now := time.Now()
-	if user.LockedUntil != nil && now.Before(*user.LockedUntil) {
-		return nil, errors.New("usuário bloqueado - acesso recusado")
-	}
-
-	return claims, nil
+	return nil, errors.New("formato de claims inválido")
 }
 
 // Helper para desreferenciar ponteiros de string
@@ -231,7 +228,7 @@ func getClaimsFromRequest(r *http.Request, userStore *store.UserStore) (*JWTClai
 		return nil, errors.New("token não fornecido")
 	}
 
-	claims, err := ValidateJWT(tokenString, userStore)
+	claims, err := ExtractJWTClaimsUnverified(tokenString)
 	if err != nil {
 		return nil, errors.New("token inválido ou expirado")
 	}
