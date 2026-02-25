@@ -386,51 +386,32 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 		}
 	})))
 
-	// Audit Logs (only accessible to root)
+	// Audit Logs (RBAC Managed)
 	mux.HandleFunc("/api/audit-logs/", s.standardMiddleware(s.authMiddleware(func(w http.ResponseWriter, r *http.Request) {
-		// Apenas root pode acessar - check via DB
-		claims, err := ValidateJWT(extractTokenFromHeader(r), s.userStore)
-		if err != nil {
-			respondError(w, http.StatusForbidden, "Apenas root pode acessar logs de auditoria")
-			return
-		}
-		isRoot, err := s.roleStore.IsUserRoot(claims.UserID)
-		if err != nil || !isRoot {
-			respondError(w, http.StatusForbidden, "Apenas root pode acessar logs de auditoria")
-			return
-		}
-
 		if strings.HasSuffix(r.URL.Path, "/export") {
-			s.handleAuditLogsExport(w, r)
+			s.requirePermissionAction("audit_logs", "export", s.handleAuditLogsExport)(w, r)
 		} else if strings.Contains(r.URL.Path, "/resource/") {
-			// client -> resource
-			s.handleAuditLogsByResource(w, r)
+			s.requirePermissionAction("audit_logs", "read", s.handleAuditLogsByResource)(w, r)
 		} else {
-			s.handleAuditLogDetail(w, r)
+			s.requirePermissionByMethod("audit_logs", map[string]string{
+				http.MethodGet: "read",
+			}, s.handleAuditLogDetail)(w, r)
 		}
 	})))
 	mux.HandleFunc("/api/audit-logs", s.standardMiddleware(s.authMiddleware(func(w http.ResponseWriter, r *http.Request) {
-		// Apenas root pode acessar - check via DB
-		claims, err := ValidateJWT(extractTokenFromHeader(r), s.userStore)
-		if err != nil {
-			respondError(w, http.StatusForbidden, "Apenas root pode acessar logs de auditoria")
-			return
-		}
-		isRoot, err := s.roleStore.IsUserRoot(claims.UserID)
-		if err != nil || !isRoot {
-			respondError(w, http.StatusForbidden, "Apenas root pode acessar logs de auditoria")
-			return
-		}
-
 		if r.URL.Path == "/api/audit-logs" {
-			s.handleAuditLogs(w, r)
+			s.requirePermissionByMethod("audit_logs", map[string]string{
+				http.MethodGet: "read",
+			}, s.handleAuditLogs)(w, r)
 		} else {
 			if strings.HasSuffix(r.URL.Path, "/export") {
-				s.handleAuditLogsExport(w, r)
+				s.requirePermissionAction("audit_logs", "export", s.handleAuditLogsExport)(w, r)
 			} else if strings.Contains(r.URL.Path, "/resource/") {
-				s.handleAuditLogsByResource(w, r)
+				s.requirePermissionAction("audit_logs", "read", s.handleAuditLogsByResource)(w, r)
 			} else {
-				s.handleAuditLogDetail(w, r)
+				s.requirePermissionByMethod("audit_logs", map[string]string{
+					http.MethodGet: "read",
+				}, s.handleAuditLogDetail)(w, r)
 			}
 		}
 	})))
