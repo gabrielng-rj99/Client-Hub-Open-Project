@@ -64,10 +64,9 @@ API_ENDPOINTS = [
     ("contracts", "delete", "DELETE", "/api/contracts/{id}", None),
     ("contracts", "archive", "POST", "/api/contracts/{id}/archive", None),
     
-    # Audit Logs
+    # Audit Logs (RBAC) - Sem create/update pois operam em background
     ("audit_logs", "read", "GET", "/api/audit-logs", None),
     ("audit_logs", "export", "GET", "/api/audit-logs/export", None),
-    ("audit_logs", "delete", "DELETE", "/api/audit-logs/{id}", None),
     
     # Financial
     ("financial", "create", "POST", "/api/financial", {"contract_id": "{id}", "financial_type": "unico"}),
