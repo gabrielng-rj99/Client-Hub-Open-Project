@@ -828,6 +828,68 @@ func (s *RoleStore) GetResourceActions(userID, resource string) ([]string, error
 	return perms.Resources[resource], nil
 }
 
+// UserAccessResult holds the combined result of authentication and authorization
+type UserAccessResult struct {
+	AuthSecret  string
+	LockedUntil *time.Time
+	IsBlocked   bool
+	HasAccess   bool
+}
+
+// CheckUserAccess validates the user's existence, lock status, and RBAC permission in a single query
+func (s *RoleStore) CheckUserAccess(userID, resource, action string) (*UserAccessResult, error) {
+	query := `
+		SELECT 
+			u.auth_secret,
+			u.locked_until,
+			CASE 
+				WHEN u.role = 'root' THEN true
+				WHEN EXISTS (
+					SELECT 1 FROM roles r
+					JOIN role_permissions rp ON r.id = rp.role_id
+					JOIN permissions p ON p.id = rp.permission_id
+					WHERE r.name = u.role AND p.resource = $2 AND p.action = $3
+				) THEN true
+				ELSE false 
+			END as has_access
+		FROM users u
+		WHERE u.id = $1 AND u.deleted_at IS NULL
+	`
+
+	result := &UserAccessResult{}
+	var authSecret sql.NullString
+	var lockedUntil sql.NullTime
+	var hasAccess sql.NullBool
+
+	err := s.db.QueryRow(query, userID, resource, action).Scan(&authSecret, &lockedUntil, &hasAccess)
+
+	if err == sql.ErrNoRows {
+		return nil, errors.New("usuário não encontrado")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("falha ao verificar acesso: %w", err)
+	}
+
+	if authSecret.Valid {
+		result.AuthSecret = authSecret.String
+	} else {
+		return nil, errors.New("auth_secret ausente")
+	}
+
+	if lockedUntil.Valid {
+		result.LockedUntil = &lockedUntil.Time
+		if time.Now().Before(lockedUntil.Time) {
+			result.IsBlocked = true
+		}
+	}
+
+	if hasAccess.Valid {
+		result.HasAccess = hasAccess.Bool
+	}
+
+	return result, nil
+}
+
 // ============================================
 // Utility Functions
 // ============================================
