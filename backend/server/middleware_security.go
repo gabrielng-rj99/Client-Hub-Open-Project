@@ -128,19 +128,38 @@ func (s *Server) securityHeadersMiddleware(next http.HandlerFunc) http.HandlerFu
 func (s *Server) requirePermissionAction(resource, action string, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		tokenString := extractTokenFromHeader(r)
-		claims, err := ValidateJWT(tokenString, s.userStore)
+
+		// 1. Extração levíssima do UUID sem checar banco
+		claims, err := ExtractJWTClaimsUnverified(tokenString)
 		if err != nil {
-			respondError(w, http.StatusUnauthorized, "Token inválido")
+			respondError(w, http.StatusUnauthorized, "Token inválido ou corrompido")
 			return
 		}
 
-		hasPerm, err := s.roleStore.HasPermission(claims.UserID, resource, action)
+		// 2. A Super Query: Busca Auth Secret, Status de Bloqueio e Permissão RBAC (1 ida ao Postgres)
+		access, err := s.roleStore.CheckUserAccess(claims.UserID, resource, action)
 		if err != nil {
-			respondError(w, http.StatusInternalServerError, "Erro ao verificar permissões")
+			// Se o Check falhar, o auth_secret estará vazio e o JWT não vai validar de qualquer forma.
+			// Falha limpa para evitar brute force.
+			respondError(w, http.StatusUnauthorized, "Não autorizado")
 			return
 		}
 
-		if !hasPerm {
+		// 3. Validação Matemática da Assinatura (100% CPU, 0 banco)
+		_, err = ValidateJWTSignature(tokenString, access.AuthSecret)
+		if err != nil {
+			respondError(w, http.StatusUnauthorized, "Assinatura do token inválida")
+			return
+		}
+
+		// 4. Checagem de Bloqueio
+		if access.IsBlocked {
+			respondError(w, http.StatusLocked, "Sua conta está bloqueada - acesso negado")
+			return
+		}
+
+		// 5. O Veridito Final da Autorização (A Catraca RBAC)
+		if !access.HasAccess {
 			respondError(w, http.StatusForbidden, "Permissão negada")
 			return
 		}
@@ -156,26 +175,36 @@ func (s *Server) requirePermissionByMethod(resource string, methodMap map[string
 	return func(w http.ResponseWriter, r *http.Request) {
 		action, exists := methodMap[r.Method]
 		if !exists {
-			// If method is not restricted or doesn't exist in map, it should either be blocked or allowed
-			// Here we assume it is blocked by default since permission is required
 			respondError(w, http.StatusMethodNotAllowed, "Method requires permission mapping")
 			return
 		}
 
 		tokenString := extractTokenFromHeader(r)
-		claims, err := ValidateJWT(tokenString, s.userStore)
+
+		claims, err := ExtractJWTClaimsUnverified(tokenString)
 		if err != nil {
-			respondError(w, http.StatusUnauthorized, "Token inválido")
+			respondError(w, http.StatusUnauthorized, "Token inválido ou corrompido")
 			return
 		}
 
-		hasPerm, err := s.roleStore.HasPermission(claims.UserID, resource, action)
+		access, err := s.roleStore.CheckUserAccess(claims.UserID, resource, action)
 		if err != nil {
-			respondError(w, http.StatusInternalServerError, "Erro ao verificar permissões")
+			respondError(w, http.StatusUnauthorized, "Não autorizado")
 			return
 		}
 
-		if !hasPerm {
+		_, err = ValidateJWTSignature(tokenString, access.AuthSecret)
+		if err != nil {
+			respondError(w, http.StatusUnauthorized, "Assinatura do token inválida")
+			return
+		}
+
+		if access.IsBlocked {
+			respondError(w, http.StatusLocked, "Sua conta está bloqueada - acesso negado")
+			return
+		}
+
+		if !access.HasAccess {
 			respondError(w, http.StatusForbidden, "Permissão negada")
 			return
 		}
