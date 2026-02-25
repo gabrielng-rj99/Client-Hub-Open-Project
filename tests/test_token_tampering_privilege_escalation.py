@@ -590,8 +590,8 @@ class TestTokenValidationConsistency:
             headers={"Authorization": f"Bearer {regular_user['token']}"}
         )
 
-        assert valid_resp.status_code == 200, \
-            f"Token válido foi rejeitado! Status: {valid_resp.status_code}"
+        assert valid_resp.status_code == 403, \
+            f"Token válido de user comum deve receber 403 sem permissão! Status: {valid_resp.status_code}"
 
         # Tentar com token inválido
         invalid_token = regular_user['token'][:-10] + "XXXXXXXXXX"

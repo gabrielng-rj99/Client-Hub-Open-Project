@@ -326,8 +326,8 @@ class TestGetFinancialsPermission:
             f"{api_url}/financial",
             headers={"Authorization": f"Bearer {regular_user['token']}"}
         )
-        assert response.status_code in [200, 404], \
-            f"Expected 200 or 404, got {response.status_code}"
+        assert response.status_code == 403, \
+            f"Expected 403, got {response.status_code}"
 
 
 # =============================================================================

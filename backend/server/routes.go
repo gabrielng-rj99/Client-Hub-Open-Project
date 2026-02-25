@@ -332,17 +332,17 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	})))
 
 	// Subcategories (Lines)
-	mux.HandleFunc("/api/subcategories/", s.standardMiddleware(s.authMiddleware(s.requirePermissionByMethod("subcategories", map[string]string{
-		http.MethodGet:    "read",
-		http.MethodPut:    "update",
-		http.MethodDelete: "delete",
-	}, s.handleSubcategoryByID))))
 	mux.HandleFunc("/api/subcategories", s.standardMiddleware(s.authMiddleware(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/api/subcategories" {
-			s.requirePermissionByMethod("subcategories", map[string]string{
-				http.MethodGet:  "read",
-				http.MethodPost: "create",
-			}, s.handleSubcategories)(w, r)
+		s.requirePermissionByMethod("subcategories", map[string]string{
+			http.MethodGet:  "read",
+			http.MethodPost: "create",
+		}, s.handleSubcategories)(w, r)
+	})))
+	mux.HandleFunc("/api/subcategories/", s.standardMiddleware(s.authMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/archive") {
+			s.requirePermissionAction("subcategories", "archive", s.handleSubcategoryByID)(w, r)
+		} else if strings.HasSuffix(r.URL.Path, "/unarchive") {
+			s.requirePermissionAction("subcategories", "archive", s.handleSubcategoryByID)(w, r)
 		} else {
 			s.requirePermissionByMethod("subcategories", map[string]string{
 				http.MethodGet:    "read",
@@ -366,6 +366,7 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/financial/", s.standardMiddleware(s.authMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		s.requirePermissionByMethod("financial", map[string]string{
 			http.MethodGet:    "read",
+			http.MethodPost:   "update",
 			http.MethodPut:    "update",
 			http.MethodDelete: "delete",
 		}, s.handleFinancialByID)(w, r)

@@ -166,7 +166,7 @@ cd "$PROJECT_ROOT"
 
 # Start test containers
 echo -e "${BLUE}🐳 Starting test containers...${NC}"
-docker compose -f "$TEST_COMPOSE_FILE" up -d postgres_test backend_test frontend_test
+docker compose -f "$TEST_COMPOSE_FILE" up -d --build postgres_test backend_test frontend_test
 
 # Wait for backend health before running tests
 echo -e "${BLUE}⏳ Waiting for backend healthcheck...${NC}"

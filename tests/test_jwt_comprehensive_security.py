@@ -1160,8 +1160,8 @@ class TestJWTValidTokenBehavior:
 
         headers = {"Authorization": f"Bearer {regular_user['token']}"}
         response = http_client.get(f"{api_url}/categories", headers=headers)
-        assert response.status_code == 200, \
-            f"Token user válido deveria acessar categories, retornou {response.status_code}"
+        assert response.status_code == 403, \
+            f"Token user válido sem permissões deve receber 403, retornou {response.status_code}"
 
     def test_valid_regular_user_accesses_clients(self, http_client, api_url, regular_user, timer):
         """Token válido de usuário comum deve acessar clientes"""
