@@ -76,7 +76,7 @@ func (s *Server) authMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		claims, err := ValidateJWT(tokenString, s.userStore)
+		claims, err := ExtractJWTClaimsUnverified(tokenString)
 		if err != nil {
 			log.Printf("Token inválido ou expirado para %s %s: %v", r.Method, r.URL.Path, err)
 			respondError(w, http.StatusUnauthorized, "Token inválido ou expirado. Faça login novamente.")
@@ -96,7 +96,7 @@ func (s *Server) authMiddleware(next http.HandlerFunc) http.HandlerFunc {
 func (s *Server) adminOnlyMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		tokenString := extractTokenFromHeader(r)
-		claims, err := ValidateJWT(tokenString, s.userStore)
+		claims, err := ExtractJWTClaimsUnverified(tokenString)
 		if err != nil {
 			respondError(w, http.StatusUnauthorized, "Token inválido")
 			return
@@ -128,7 +128,7 @@ func (s *Server) adminOnlyMiddleware(next http.HandlerFunc) http.HandlerFunc {
 func (s *Server) rootOnlyMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		tokenString := extractTokenFromHeader(r)
-		claims, err := ValidateJWT(tokenString, s.userStore)
+		claims, err := ExtractJWTClaimsUnverified(tokenString)
 		if err != nil {
 			respondError(w, http.StatusUnauthorized, "Token inválido")
 			return
