@@ -93,6 +93,7 @@ Resumo único e consolidado de requisitos, estado atual e próximos passos.
 - [ ] Executar suíte Python completa com `TEST_API_URL=http://localhost:63000/api`.
 - [ ] Resolver buildx e permissões de volume nos ambientes alvo.
 - [ ] Reexecutar suíte após ajustes de ambiente.
+- [ ] Ajustar botões (UI) para interagir com novo aparato de segurança e permissões refatorado.
 
 ## Pós-Beta (futuro)
 - [ ] Webhooks, API pública, exportações
